@@ -46,13 +46,13 @@
   // Remote Config. Nunca commitar chaves em repositório público.
   // ─────────────────────────────────────────────────────────
   const FIREBASE_CONFIG = {
-    apiKey:            'AIzaSyCQCwbfyXQmOT1wTS0oFqRrXwKxne9YR7M',
-    authDomain:        'wwmx-4faa3.firebaseapp.com',
-    databaseURL:       'https://wwmx-4faa3-default-rtdb.firebaseio.com',
-    projectId:         'wwmx-4faa3',
-    storageBucket:     'wwmx-4faa3.firebasestorage.app',
-    messagingSenderId: '615582561373',
-    appId:             '1:615582561373:web:b259578032c6a2082049b4',
+    apiKey:            'AIzaSyAnK4l4w24ouHvqKnI7EWZ-nwQPGLrCc7w',
+    authDomain:        'angel-edd10.firebaseapp.com',
+    databaseURL:       'https://angel-edd10-default-rtdb.firebaseio.com',
+    projectId:         'angel-edd10',
+    storageBucket:     'angel-edd10.firebasestorage.app',
+    messagingSenderId: '468748352830',
+    appId:             '1:468748352830:web:75e9dd534710a85401406f',
   };
 
   // ─────────────────────────────────────────────────────────

@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────
+    function isMembro(campanhaId) {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/campanhas/$(campanhaId)/militantes/$(request.auth.uid));
+    }
+    function nivel(campanhaId) {
+      return get(/databases/$(database)/documents/campanhas/$(campanhaId)/militantes/$(request.auth.uid)).data.nivel;
+    }
+    function isCoordOuSuperior(campanhaId) {
+      return isMembro(campanhaId) && nivel(campanhaId) in ['coord','candidato','master'];
+    }
+    function isCandidatoOuSuperior(campanhaId) {
+      return isMembro(campanhaId) && nivel(campanhaId) in ['candidato','master'];
+    }
+    function isMaster() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/master/usuarios/$(request.auth.uid));
+    }
+
+    // ── Campanhas ─────────────────────────────────────────────
+    match /campanhas/{campanhaId} {
+      allow read:  if isMembro(campanhaId) || isMaster();
+      allow write: if isMaster();
+
+      match /config/{doc} {
+        allow read:  if isMembro(campanhaId);
+        allow write: if isCandidatoOuSuperior(campanhaId) || isMaster();
+      }
+      match /logs/{logId} {
+        allow read:  if isCandidatoOuSuperior(campanhaId);
+        allow create: if isMembro(campanhaId);
+      }
+      match /militantes/{uid} {
+        allow read:  if isMembro(campanhaId) || request.auth.uid == uid;
+        allow write: if isCoordOuSuperior(campanhaId) || request.auth.uid == uid;
+      }
+      match /estoque_central/{itemId} {
+        allow read:  if isMembro(campanhaId);
+        allow write: if isCoordOuSuperior(campanhaId);
+      }
+    }
+
+    // ── Locais de votação (banco global) ──────────────────────
+    match /locais_votacao/{municipio}/{doc=**} {
+      allow read:  if request.auth != null;
+      allow write: if isMaster();
+    }
+
+    // ── Histórico eleitoral ───────────────────────────────────
+    match /historico_eleitoral/{doc=**} {
+      allow read:  if request.auth != null;
+      allow write: if isMaster();
+    }
+
+    // ── Importações (disparadas pelo Master) ──────────────────
+    match /importacoes/{doc} {
+      allow read:  if isMaster();
+      allow create: if request.auth != null;
+    }
+
+    // ── Painel Master ─────────────────────────────────────────
+    match /master/{doc=**} {
+      allow read, write: if isMaster();
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "logs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "campanhaId", "order": "ASCENDING" },
+        { "fieldPath": "tsLocal",    "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "logs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "acao",    "order": "ASCENDING" },
+        { "fieldPath": "tsLocal", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "locais_votacao",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "municipio", "order": "ASCENDING" },
+        { "fieldPath": "nome",      "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

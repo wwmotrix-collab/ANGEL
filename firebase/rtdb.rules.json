@@ -1,0 +1,39 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "campanhas": {
+      "$campanhaId": {
+        "militantes": {
+          "$uid": {
+            ".read":  "auth != null && auth.uid === $uid",
+            ".write": "auth != null && (auth.uid === $uid || root.child('campanhas/'+$campanhaId+'/militantes/'+auth.uid+'/nivel').val() !== 'campo')"
+          }
+        },
+        "presenca": {
+          "$uid": {
+            ".read":  "auth != null && root.child('campanhas/'+$campanhaId+'/militantes/'+auth.uid).exists()",
+            ".write": "auth != null && auth.uid === $uid"
+          }
+        },
+        "pins":           { ".read": "auth != null && root.child('campanhas/'+$campanhaId+'/militantes/'+auth.uid).exists()", ".write": "auth != null && root.child('campanhas/'+$campanhaId+'/militantes/'+auth.uid).exists()" },
+        "percursos":      { ".read": "auth != null && root.child('campanhas/'+$campanhaId+'/militantes/'+auth.uid).exists()", ".write": "auth != null && root.child('campanhas/'+$campanhaId+'/militantes/'+auth.uid).exists()" },
+        "crm_liderancas": { ".read": "auth != null && root.child('campanhas/'+$campanhaId+'/militantes/'+auth.uid).exists()", ".write": "auth != null && root.child('campanhas/'+$campanhaId+'/militantes/'+auth.uid).exists()" },
+        "denuncias":      { ".read": "auth != null && root.child('campanhas/'+$campanhaId+'/militantes/'+auth.uid).exists()", ".write": "auth != null && root.child('campanhas/'+$campanhaId+'/militantes/'+auth.uid).exists()" },
+        "estoque_central":{ ".read": "auth != null && root.child('campanhas/'+$campanhaId+'/militantes/'+auth.uid).exists()", ".write": "auth != null && root.child('campanhas/'+$campanhaId+'/militantes/'+auth.uid+'/nivel').val() !== 'campo'" },
+        "distribuicoes":  { ".read": "auth != null && root.child('campanhas/'+$campanhaId+'/militantes/'+auth.uid).exists()", ".write": "auth != null && root.child('campanhas/'+$campanhaId+'/militantes/'+auth.uid+'/nivel').val() !== 'campo'" },
+        "rotas":          { ".read": "auth != null && root.child('campanhas/'+$campanhaId+'/militantes/'+auth.uid).exists()", ".write": "auth != null && root.child('campanhas/'+$campanhaId+'/militantes/'+auth.uid+'/nivel').val() !== 'campo'" },
+        "inventarios": {
+          "$uid": {
+            ".read":  "auth != null && (auth.uid === $uid || root.child('campanhas/'+$campanhaId+'/militantes/'+auth.uid+'/nivel').val() !== 'campo')",
+            ".write": "auth != null && root.child('campanhas/'+$campanhaId+'/militantes/'+auth.uid+'/nivel').val() !== 'campo'"
+          }
+        },
+        "logs": {
+          ".read":  "auth != null && root.child('campanhas/'+$campanhaId+'/militantes/'+auth.uid+'/nivel').val() !== 'campo'",
+          ".write": "auth != null && root.child('campanhas/'+$campanhaId+'/militantes/'+auth.uid).exists()"
+        }
+      }
+    }
+  }
+}
