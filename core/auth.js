@@ -255,29 +255,29 @@
 
   async function _verificarSenhaCampanha(campanhaId, nivel, senhaDigitada) {
     try {
-      const config = await WWMX.fs.getDoc('campanhas', campanhaId, 'config');
-      if (config?.senhas?.[nivel]) {
+      const config = await WWMX.carregarConfigCampanha(campanhaId);
+      if (config && config.senhas && config.senhas[nivel]) {
         return config.senhas[nivel] === senhaDigitada;
       }
     } catch (_) {}
-    // Fallback para demo
     return _SENHAS_FALLBACK[nivel] === senhaDigitada;
   }
 
   // ─────────────────────────────────────────────────────────
   // FIREBASE AUTH — cria ou loga usuário
-  // Usa email sintético para não exigir email real do militante.
-  // Formato: nome-slug_nivel@campanha-id.wwmx
+  // Email no formato gmail.com para compatibilidade com Firebase Auth.
+  // Formato: wwmx.nome.nivel.campanha@gmail.com
   // ─────────────────────────────────────────────────────────
   function _nomeParaEmail(nome, nivel, campanhaId) {
     const slug = nome
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9-]/g, '')
-      .slice(0, 30);
-    return `${slug}_${nivel}@${campanhaId}.wwmx`;
+      .replace(/\s+/g, '.')
+      .replace(/[^a-z0-9.]/g, '')
+      .slice(0, 20);
+    const camp = campanhaId.replace(/[^a-z0-9]/gi, '').slice(0, 10).toLowerCase();
+    return 'wwmx.' + slug + '.' + nivel + '.' + camp + '@gmail.com';
   }
 
   async function _autenticarOuCriarFirebase(email, senha, nivel) {
