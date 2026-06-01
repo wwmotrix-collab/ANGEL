@@ -187,19 +187,20 @@
         subTitulo: `WWMX Campaign · ${municipio} ${ano}`,
       }, 'campanhas', id);
 
-      // 2. Criar config com senhas
+      // 2. Criar config com senhas (subcoleção config/main)
       await WWMX.fs.setDoc({
         municipio, uf, ano, modulosAtivos,
         nomeExibicao: nome,
         numero,
         cargo,
+        metaVotos: 49000,
         senhas: {
           campo:     senhaCampo,
           coord:     senhaCoord,
           candidato: senhaCand,
-          master:    'master2026', // Master usa senha global
+          master:    'master2026',
         },
-      }, 'campanhas', id, 'config');
+      }, 'campanhas', id, 'config', 'main');
 
       // 3. Disparar log
       await WWMX.log(id, 'campanha_criada', { municipio, cargo, modulosAtivos }, session);

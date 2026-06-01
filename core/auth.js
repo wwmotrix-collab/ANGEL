@@ -287,10 +287,23 @@
       const cred = await auth.signInWithEmailAndPassword(email, senha);
       return cred.user;
     } catch (err) {
-      if (err.code === 'auth/user-not-found') {
-        // Primeiro acesso: cria o usuário
-        const cred = await auth.createUserWithEmailAndPassword(email, senha);
-        return cred.user;
+      // auth/user-not-found     → SDK compat v8/v9
+      // auth/invalid-credential → SDK compat v9.x+ (novo comportamento)
+      const ePrimeiroAcesso = err.code === 'auth/user-not-found' ||
+                              err.code === 'auth/invalid-credential' ||
+                              err.code === 'auth/invalid-login-credentials';
+      if (ePrimeiroAcesso) {
+        try {
+          // Primeiro acesso: cria o usuário automaticamente
+          const cred = await auth.createUserWithEmailAndPassword(email, senha);
+          return cred.user;
+        } catch (createErr) {
+          // Se falhou ao criar, pode ser que o usuário existe com senha diferente
+          if (createErr.code === 'auth/email-already-in-use') {
+            throw new Error('Senha incorreta. Verifique a senha de campanha.');
+          }
+          throw createErr;
+        }
       }
       if (err.code === 'auth/wrong-password') {
         throw new Error('Senha incorreta no Firebase Auth.');

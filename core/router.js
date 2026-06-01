@@ -133,7 +133,7 @@
     if (!permitidos.includes(moduloId)) return false;
 
     // Se o módulo é de funcionalidade opcional (ex: CRM), verificar se está ativo na campanha
-    const modulosOpcionais = ['crm', 'agenda', 'denuncias', 'estreleiro', 'pre-campanha'];
+    const modulosOpcionais = ['crm', 'agenda', 'denuncias', 'estreleiro', 'pre-campanha', 'inteligencia-eleitoral'];
     if (modulosOpcionais.includes(moduloId) && !_modulosAtivos.includes(moduloId)) {
       return false;
     }
@@ -148,15 +148,13 @@
     const sel = document.getElementById('navSelect');
     if (!sel) return;
 
-    // Construir lista de opções permitidas
+    // Construir lista de opções — usa NAV_LABELS do core/config.js
+    const NAV_LABELS = (global.WWMX && global.WWMX.Config && global.WWMX.Config.NAV_LABELS) || {};
     const opcoes = [];
-    for (const [id, info] of Object.entries(MODULOS_VIEWS)) {
+    for (const id of Object.keys(MODULOS_VIEWS)) {
       if (_moduloPermitido(id)) {
-        let label = '';
-        if (id.startsWith('master-')) label = id.replace('master-', '').replace('-', ' ');
-        else if (id.startsWith('admin')) label = id.replace('admin', '').replace(/([A-Z])/g, ' $1');
-        else label = id.charAt(0).toUpperCase() + id.slice(1);
-        opcoes.push({ id, label: label.trim() });
+        const label = NAV_LABELS[id] || id.charAt(0).toUpperCase() + id.slice(1);
+        opcoes.push({ id, label });
       }
     }
 

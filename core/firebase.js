@@ -595,7 +595,16 @@
    * @returns {Promise<object|null>}
    */
   async function carregarConfigCampanha(campanhaId) {
-    return fs.getDoc('campanhas', campanhaId, 'config');
+    // Tenta subcoleção config/main (padrão do seed e master/campanhas.js)
+    try {
+      const doc = await fs.getDoc('campanhas', campanhaId, 'config', 'main');
+      if (doc) return doc;
+    } catch (_) {}
+    // Fallback: documento direto campanhas/{id}/config (estrutura legada)
+    try {
+      return await fs.getDoc('campanhas', campanhaId, 'config');
+    } catch (_) {}
+    return null;
   }
 
   /**
