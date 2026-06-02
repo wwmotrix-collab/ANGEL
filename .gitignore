@@ -4,3 +4,9 @@ node_modules/
 firebase-debug.log
 .firebase/
 *.local
+
+# Firebase Admin service accounts — nunca commitar chaves privadas
+serviceAccountKey.json
+firebase/serviceAccountKey.json
+*service-account*.json
+*.service-account.json

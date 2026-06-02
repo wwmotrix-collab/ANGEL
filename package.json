@@ -1,0 +1,13 @@
+{
+  "name": "angel-wwmx-campaign",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ANGEL — WWMX Campaign static app and Firebase utilities",
+  "scripts": {
+    "seed:demo": "node firebase/seed-admin.js",
+    "seed:demo:dry": "node firebase/seed-admin.js --dry-run"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.4.0"
+  }
+}
