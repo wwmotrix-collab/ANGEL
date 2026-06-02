@@ -6,7 +6,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>WWMX Campaign</title>
+  <title>ANGEL — Agente Núcleo de Gestão Eleitoral</title>
 
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -16,6 +16,7 @@
 
   <!-- Design system WWMX -->
   <link rel="stylesheet" href="core/design.css">
+  <link rel="stylesheet" href="core/brand.css">
 
   <style>
     /* Estilo mínimo inline — apenas o que não pertence ao design system */
@@ -41,16 +42,12 @@
 <!-- ══════════════════════════════════════════════
      TELA DE LOGIN
      Gerenciada por core/auth.js
-═══════════════════════════════════════════════ -->
+════════════════════════════════════════════════ -->
 <div id="loginScreen">
   <div class="login-logo" id="loginLogoClick">
-    <div class="login-logo-cand">
-      <small>Deputado Estadual</small>
-      DR. CARLOS<br>MENDES
-    </div>
-    <div class="login-logo-num">40</div>
+    <img class="login-logo-img" src="assets/brand/angel-logo.svg" alt="ANGEL — Agente Núcleo de Gestão Eleitoral">
   </div>
-  <div class="login-sub">WWMX Campaign · Viamão 2026</div>
+  <div class="login-sub">Agente Núcleo de Gestão Eleitoral</div>
 
   <div class="login-card">
     <div class="login-title">Entrar como</div>
@@ -92,17 +89,13 @@
 <!-- ══════════════════════════════════════════════
      APP PRINCIPAL
      Estrutura gerenciada por core/auth.js e core/router.js
-═══════════════════════════════════════════════ -->
+════════════════════════════════════════════════ -->
 <div id="app">
 
   <!-- Header fixo -->
   <div class="header">
     <div class="header-logo" id="headerLogo">
-      <div class="header-logo-name">
-        <small>Dep. Estadual</small>
-        DR. CARLOS MENDES
-      </div>
-      <div class="header-logo-num">40</div>
+      <img class="header-logo-img" src="assets/brand/angel-logo.svg" alt="ANGEL — Agente Núcleo de Gestão Eleitoral">
     </div>
 
     <div class="header-badge" id="nivelBadge">Campo</div>
@@ -133,13 +126,13 @@
 
 <!-- ══════════════════════════════════════════════
      TOAST CONTAINER (criado por core/ui.js)
-═══════════════════════════════════════════════ -->
+════════════════════════════════════════════════ -->
 <div class="toast-container" id="toastContainer"></div>
 
 
 <!-- ══════════════════════════════════════════════
      LIGHTBOX (imagens)
-═══════════════════════════════════════════════ -->
+════════════════════════════════════════════════ -->
 <div id="lightbox" onclick="fecharLightbox()">
   <button id="lightbox-close" onclick="fecharLightbox()">✕</button>
   <img id="lightboxImg" src="" alt="">
@@ -152,7 +145,7 @@
      2. Firebase SDKs compat v9
      3. Core WWMX (firebase → config → ui → auth → router)
      4. Módulos carregados dinamicamente pelo router
-═══════════════════════════════════════════════ -->
+════════════════════════════════════════════════ -->
 
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -169,7 +162,7 @@
 <script src="core/firebase.js"></script>
 <script src="core/auth.js"></script>
 <script src="core/xp.js"></script>
-  <script src="core/router.js"></script>
+<script src="core/router.js"></script>
 
 <!-- Utilitários globais inline -->
 <script>
@@ -202,6 +195,7 @@ function formatDate(ts) {
   const d = new Date(ts);
   return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
 }
+window.formatDate = formatDate;
 
 // calcKm (haversine) — usado por campo/percursos e coordenador/rotas
 function calcKm(pontos) {
@@ -220,7 +214,6 @@ function calcKm(pontos) {
   return total;
 }
 window.calcKm = calcKm;
-window.formatDate = formatDate;
 
 // comprimirFoto — usado por campo/mapa e modulos/denuncias
 function comprimirFoto(file, callback, maxW = 1200, qualidade = 0.65) {
