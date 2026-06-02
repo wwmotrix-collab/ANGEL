@@ -5,7 +5,9 @@
   "description": "ANGEL — WWMX Campaign static app and Firebase utilities",
   "scripts": {
     "seed:demo": "node firebase/seed-admin.js",
-    "seed:demo:dry": "node firebase/seed-admin.js --dry-run"
+    "seed:demo:dry": "node firebase/seed-admin.js --dry-run",
+    "picoclaw:plan": "node motores/picoclaw/engine.js --input angel-picoclaw-package.json --out out/picoclaw",
+    "picoclaw:plan:sample": "node motores/picoclaw/engine.js --input exemplos/angel-picoclaw-package.sample.json --out out/picoclaw-sample"
   },
   "dependencies": {
     "firebase-admin": "^13.4.0"
