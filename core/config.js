@@ -39,6 +39,7 @@
     militantes:'⚔️  Militantes', estoque:'📦 Estoque', rotas:'🚗 Rotas', denuncias:'🚨 Denúncias',
     admindash:'👑 Painel', adminmapa:'🗺️  Mapa', adminagentes:'⭐ Agentes',
     adminequipe:'⚔️  Equipe', logs:'📋 Logs',
+    'master-gerador':'🧠 Gerador PicoClaw',
     'master-campanhas':'🏗️  Campanhas','master-planos':'💰 Planos',
     'master-banco':'🗄️  Banco','master-clientes':'🤝 Clientes',
   };
@@ -47,6 +48,8 @@
     { id:'crm',                    label:'CRM Lideranças',        icon:'👥' },
     { id:'agenda',                 label:'Agenda de Eventos',     icon:'📅' },
     { id:'denuncias',              label:'Canal de Denúncias',    icon:'🚨' },
+    { id:'estoque',                label:'Estoque e Materiais',   icon:'📦' },
+    { id:'rotas',                  label:'Planejamento de Rotas', icon:'🚗' },
     { id:'estreleiro',             label:'Estreleiro',            icon:'🌟' },
     { id:'pre-campanha',           label:'Pré-Campanha',          icon:'🌱' },
     { id:'inteligencia-eleitoral', label:'Inteligência Eleitoral',icon:'🗳️' },
