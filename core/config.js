@@ -33,10 +33,11 @@
   const NIVEL_RANK = { campo:1, coord:2, candidato:3, master:4 };
 
   const NAV_LABELS = {
+    central:'✨ Visão Geral',
     mapa:'🗺️  Mapa', meucampo:'📍 Meu Campo', percursos:'🚗 Percursos',
     meuinventario:'📦 Meu Inventário', minhasrotas:'🎯 Minhas Rotas',
     dash:'📊 Dashboard', eleitoral:'🗳️  Eleitoral', crm:'👥 CRM',
-    militantes:'⚔️  Militantes', estoque:'📦 Estoque', rotas:'🚗 Rotas', denuncias:'🚨 Denúncias',
+    militantes:'⚔️  Gestão de Equipe', estoque:'📦 Estoque', rotas:'🚗 Rotas', denuncias:'🚨 Denúncias',
     admindash:'👑 Painel', adminmapa:'🗺️  Mapa', adminagentes:'⭐ Agentes',
     adminequipe:'⚔️  Equipe', logs:'📋 Logs',
     'master-campanhas':'🏗️  Campanhas','master-planos':'💰 Planos',
