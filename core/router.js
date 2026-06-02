@@ -1,97 +1,77 @@
 /**
  * core/router.js
- * WWMX Campaign — Roteamento dinâmico por perfil e módulos ativos
- *
- * ┌─────────────────────────────────────────────────────────┐
- * │  Responsabilidades:                                     │
- * │  - Carregar o módulo correto (view) baseado no perfil   │
- * │    do usuário e nos módulos ativos da campanha.         │
- * │  - Ouvir mudanças de navegação (select ou hash)         │
- * │  - Gerenciar o container #appView                       │
- * │  - Destruir módulos antigos antes de carregar novo      │
- * └─────────────────────────────────────────────────────────┘
- *
- * Depende de:
- *   core/auth.js     → WWMX.Auth
- *   core/firebase.js → WWMX.db, WWMX.fs
+ * WWMX Campaign — Roteamento dinâmico por perfil e módulos ativos.
+ * Também cria wrappers de compatibilidade para módulos migrados do HTML monólito.
  */
-
 (function (global) {
   'use strict';
 
-  // ─────────────────────────────────────────────────────────
-  // CONFIGURAÇÃO
-  // ─────────────────────────────────────────────────────────
+  const BUILD_TAG = '20260602-hotfix-rotas-estoque-v3';
+
   const MODULOS_VIEWS = {
-    // Campo
-    mapa:         { path: 'campo/mapa.js',        init: 'mapaInit',        destroy: 'mapaDestroy' },
-    meucampo:     { path: 'campo/meucampo.js',    init: 'meucampoInit',    destroy: 'meucampoDestroy' },
-    percursos:    { path: 'campo/percursos.js',   init: 'percursosInit',   destroy: 'percursosDestroy' },
-    meuinventario:{ path: 'campo/inventario.js',  init: 'inventarioInit',  destroy: 'inventarioDestroy' },
-    minhasrotas:  { path: 'campo/rotas.js',       init: 'rotasInit',       destroy: 'rotasDestroy' },
+    central:      { path: 'modulos/central.js', init: 'centralInit', destroy: 'centralDestroy', viewId: 'centralView' },
+    mapa:         { path: 'campo/mapa.js', init: 'mapaInit', destroy: 'mapaDestroy', viewId: 'mapaView' },
+    meucampo:     { path: 'campo/meucampo.js', init: 'meucampoInit', destroy: 'meucampoDestroy', viewId: 'meucampoView' },
+    percursos:    { path: 'campo/percursos.js', init: 'percursosInit', destroy: 'percursosDestroy', viewId: 'percursosView' },
+    meuinventario:{ path: 'campo/inventario.js', init: 'inventarioInit', destroy: 'inventarioDestroy', viewId: 'meuinventarioView' },
+    minhasrotas:  { path: 'campo/rotas.js', init: 'rotasInit', destroy: 'rotasDestroy', viewId: 'minhasrotasView' },
 
-    // Coordenador
-    dash:         { path: 'coordenador/dash.js',       init: 'dashInit',         destroy: 'dashDestroy' },
-    eleitoral:    { path: 'modulos/inteligencia-eleitoral.js', init: 'intelInit', destroy: 'intelDestroy' },
-    crm:          { path: 'modulos/crm.js',            init: 'crmInit',          destroy: 'crmDestroy' },
-    militantes:   { path: 'coordenador/equipe.js',     init: 'equipeInit',       destroy: 'equipeDestroy' },
-    estoque:      { path: 'coordenador/estoque.js',    init: 'estoqueInit',      destroy: 'estoqueDestroy' },
-    rotas:        { path: 'coordenador/rotas.js',      init: 'rotasCoordInit',   destroy: 'rotasCoordDestroy' },
+    dash:         { path: 'coordenador/dash.js', init: 'dashInit', destroy: 'dashDestroy', viewId: 'dashView' },
+    eleitoral:    { path: 'modulos/inteligencia-eleitoral.js', init: 'intelInit', destroy: 'intelDestroy', viewId: 'eleitoralView' },
+    crm:          { path: 'modulos/crm.js', init: 'crmInit', destroy: 'crmDestroy', viewId: 'crmView' },
+    denuncias:    { path: 'modulos/denuncias.js', init: 'denunciasInit', destroy: 'denunciasDestroy', viewId: 'denunciasView' },
+    militantes:   { path: 'coordenador/equipe.js', init: 'equipeInit', destroy: 'equipeDestroy', viewId: 'militantesView' },
+    estoque:      { path: 'coordenador/estoque.js', init: 'estoqueInit', destroy: 'estoqueDestroy', viewId: 'estoqueView' },
+    rotas:        { path: 'coordenador/rotas.js', init: 'rotasCoordInit', destroy: 'rotasCoordDestroy', viewId: 'rotasView' },
 
-    // Candidato
-    admindash:    { path: 'candidato/dashboard.js',    init: 'candDashInit',     destroy: 'candDashDestroy' },
-    adminmapa:    { path: 'candidato/mapa.js',         init: 'candMapaInit',     destroy: 'candMapaDestroy' },
-    adminagentes: { path: 'candidato/agentes.js',      init: 'agentesInit',      destroy: 'agentesDestroy' },
-    adminequipe:  { path: 'candidato/equipe.js',       init: 'candEquipeInit',   destroy: 'candEquipeDestroy' },
-    logs:         { path: 'candidato/logs.js',         init: 'logsInit',         destroy: 'logsDestroy' },
+    admindash:    { path: 'candidato/dashboard.js', init: 'candDashInit', destroy: 'candDashDestroy', viewId: 'admindashView' },
+    adminmapa:    { path: 'candidato/mapa.js', init: 'candMapaInit', destroy: 'candMapaDestroy', viewId: 'adminmapaView' },
+    adminagentes: { path: 'candidato/agentes.js', init: 'agentesInit', destroy: 'agentesDestroy', viewId: 'adminagentesView' },
+    adminequipe:  { path: 'candidato/equipe.js', init: 'candEquipeInit', destroy: 'candEquipeDestroy', viewId: 'adminequipeView' },
+    logs:         { path: 'candidato/logs.js', init: 'logsInit', destroy: 'logsDestroy', viewId: 'logsView' },
 
-    // Master
-    'master-campanhas': { path: 'master/campanhas.js', init: 'campanhasInit', destroy: 'campanhasDestroy' },
-    'master-planos':    { path: 'master/planos.js',    init: 'planosInit',    destroy: 'planosDestroy' },
-    'master-banco':     { path: 'master/banco-global.js', init: 'bancoInit', destroy: 'bancoDestroy' },
-    'master-clientes':  { path: 'master/clientes.js', init: 'clientesInit',  destroy: 'clientesDestroy' },
+    'master-campanhas': { path: 'master/campanhas.js', init: 'campanhasInit', destroy: 'campanhasDestroy', viewId: 'masterCampanhasView' },
+    'master-planos':    { path: 'master/planos.js', init: 'planosInit', destroy: 'planosDestroy', viewId: 'masterPlanosView' },
+    'master-banco':     { path: 'master/banco-global.js', init: 'bancoInit', destroy: 'bancoDestroy', viewId: 'masterBancoView' },
+    'master-clientes':  { path: 'master/clientes.js', init: 'clientesInit', destroy: 'clientesDestroy', viewId: 'masterClientesView' },
   };
 
-  // Estado interno
-  let _viewAtual = null;        // { moduleId, destroyFn, container }
+  let _viewAtual = null;
   let _campanhaId = null;
-  let _modulosAtivos = [];      // módulos da campanha (ex: ['crm', 'agenda', ...])
+  let _modulosAtivos = [];
   let _nivelAtual = null;
 
-  // ─────────────────────────────────────────────────────────
-  // INICIALIZAÇÃO (ouvir eventos e montar navegação)
-  // ─────────────────────────────────────────────────────────
+  const ORDEM = {
+    master: ['central','master-campanhas','master-planos','master-banco','master-clientes'],
+    candidato: ['central','admindash','adminmapa','adminagentes','adminequipe','dash','eleitoral','crm','denuncias','logs'],
+    coord: ['central','dash','mapa','eleitoral','crm','denuncias','militantes','estoque','rotas'],
+    campo: ['central','mapa','meucampo','percursos','meuinventario','minhasrotas','denuncias'],
+  };
+
+  const PERMISSOES = { master: ORDEM.master, candidato: ORDEM.candidato, coord: ORDEM.coord, campo: ORDEM.campo };
+  const OPCIONAIS = { crm: ['crm'], denuncias: ['denuncias'], eleitoral: ['eleitoral', 'inteligencia-eleitoral'] };
+
   function init() {
-    // Aguardar a sessão estar pronta (via auth)
     global.addEventListener('wwmx:session-ready', (e) => {
       const session = e.detail;
       _campanhaId = session.campanhaId;
       _nivelAtual = session.nivel;
-
-      // Carregar lista de módulos ativos da campanha (Firestore)
       _carregarModulosAtivos().then(() => {
-        // Montar navegação (pode ser sobreposta ao que auth já fez)
         _montarNavSelect();
-
-        // Carregar a primeira tela baseada no hash ou no valor do select
         const hash = global.location.hash.slice(1);
-        const moduloInicial = hash || _obterPrimeiroModuloPermitido();
-        _carregarModulo(moduloInicial);
+        _carregarModulo(hash || _obterPrimeiroModuloPermitido());
       });
     });
 
-    // Ouvir mudanças no <select> da navegação
     global.addEventListener('change', (e) => {
-      if (e.target.id === 'navSelect') {
-        const novoModulo = e.target.value;
-        if (novoModulo && _moduloPermitido(novoModulo)) {
-          _carregarModulo(novoModulo);
-          global.location.hash = novoModulo; // opcional: atualizar URL
-        }
+      if (e.target.id !== 'navSelect') return;
+      const novoModulo = e.target.value;
+      if (novoModulo && _moduloPermitido(novoModulo)) {
+        _carregarModulo(novoModulo);
+        global.location.hash = novoModulo;
       }
     });
 
-    // Ouvir hashchange (para compatibilidade com links externos)
     global.addEventListener('hashchange', () => {
       const hash = global.location.hash.slice(1);
       if (hash && _moduloPermitido(hash)) {
@@ -102,9 +82,6 @@
     });
   }
 
-  // ─────────────────────────────────────────────────────────
-  // CARREGAR MÓDULOS ATIVOS DA CAMPANHA
-  // ─────────────────────────────────────────────────────────
   async function _carregarModulosAtivos() {
     try {
       const config = await WWMX.carregarConfigCampanha(_campanhaId);
@@ -115,134 +92,102 @@
     }
   }
 
-  // ─────────────────────────────────────────────────────────
-  // VERIFICAR SE MÓDULO É PERMITIDO PARA O PERFIL ATUAL
-  // ─────────────────────────────────────────────────────────
   function _moduloPermitido(moduloId) {
-    // Verificar se o módulo existe no mapeamento
     if (!MODULOS_VIEWS[moduloId]) return false;
-
-    // Verificar permissão por nível (pode ser refinado)
-    const permissoesPorNivel = {
-      master:     Object.keys(MODULOS_VIEWS).filter(k => k.startsWith('master-')),
-      candidato:  Object.keys(MODULOS_VIEWS).filter(k => k.startsWith('admin') || k === 'logs' || k === 'eleitoral' || k === 'dash'),
-      coord:      ['dash','eleitoral','crm','militantes','estoque','rotas','mapa'],
-      campo:      ['mapa','meucampo','percursos','meuinventario','minhasrotas'],
-    };
-    const permitidos = permissoesPorNivel[_nivelAtual] || [];
+    const permitidos = PERMISSOES[_nivelAtual] || [];
     if (!permitidos.includes(moduloId)) return false;
-
-    // Se o módulo é de funcionalidade opcional (ex: CRM), verificar se está ativo na campanha
-    const modulosOpcionais = ['crm', 'agenda', 'denuncias', 'estreleiro', 'pre-campanha', 'inteligencia-eleitoral'];
-    if (modulosOpcionais.includes(moduloId) && !_modulosAtivos.includes(moduloId)) {
-      return false;
-    }
-
+    const aliases = OPCIONAIS[moduloId];
+    if (aliases && !_modulosAtivos.some(m => aliases.includes(m))) return false;
     return true;
   }
 
-  // ─────────────────────────────────────────────────────────
-  // MONTAR NAVEGAÇÃO (select) — baseado em permissões
-  // ─────────────────────────────────────────────────────────
   function _montarNavSelect() {
     const sel = document.getElementById('navSelect');
     if (!sel) return;
-
-    // Construir lista de opções — usa NAV_LABELS do core/config.js
-    const NAV_LABELS = (global.WWMX && global.WWMX.Config && global.WWMX.Config.NAV_LABELS) || {};
-    const opcoes = [];
-    for (const id of Object.keys(MODULOS_VIEWS)) {
-      if (_moduloPermitido(id)) {
-        const label = NAV_LABELS[id] || id.charAt(0).toUpperCase() + id.slice(1);
-        opcoes.push({ id, label });
-      }
-    }
-
-    sel.innerHTML = opcoes.map(o => `<option value="${o.id}">${o.label}</option>`).join('');
-    if (opcoes.length) sel.value = opcoes[0].id;
+    const labels = WWMX.Config?.NAV_LABELS || {};
+    const ids = (ORDEM[_nivelAtual] || Object.keys(MODULOS_VIEWS)).filter(_moduloPermitido);
+    sel.innerHTML = ids.map(id => `<option value="${id}">${labels[id] || id}</option>`).join('');
+    if (ids.length) sel.value = ids[0];
   }
 
   function _obterPrimeiroModuloPermitido() {
     const sel = document.getElementById('navSelect');
-    return sel?.value || Object.keys(MODULOS_VIEWS).find(id => _moduloPermitido(id)) || 'mapa';
+    return sel?.value || Object.keys(MODULOS_VIEWS).find(_moduloPermitido) || 'mapa';
   }
 
-  // ─────────────────────────────────────────────────────────
-  // CARREGAR MÓDULO (DINAMICAMENTE COM SCRIPT)
-  // ─────────────────────────────────────────────────────────
+  function _prepararContainer(config) {
+    const container = document.getElementById('appView');
+    if (!container) return null;
+    container.innerHTML = `<div class="view active" id="${config.viewId}" style="display:flex;flex-direction:column;min-height:100%;"></div>`;
+    return container;
+  }
+
+  function _scriptSrc(path, forceReload = false) {
+    const sep = path.includes('?') ? '&' : '?';
+    return `${path}${sep}v=${encodeURIComponent(BUILD_TAG)}${forceReload ? `&r=${Date.now()}` : ''}`;
+  }
+
+  async function _loadScript(moduleId, config, forceReload = false) {
+    const scriptId = `script-${moduleId}`;
+    const old = document.getElementById(scriptId);
+    if (old && !forceReload) return;
+    if (old) old.remove();
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = _scriptSrc(config.path, forceReload);
+      script.onload = resolve;
+      script.onerror = () => reject(new Error(`Falha ao carregar ${config.path}`));
+      document.head.appendChild(script);
+    });
+  }
+
   async function _carregarModulo(moduleId) {
-    if (!moduleId || !MODULOS_VIEWS[moduleId]) {
-      console.warn(`[router] Módulo inválido: ${moduleId}`);
+    if (!moduleId || !MODULOS_VIEWS[moduleId]) return;
+    if (!_moduloPermitido(moduleId)) {
+      const fallback = _obterPrimeiroModuloPermitido();
+      if (fallback && fallback !== moduleId) return _carregarModulo(fallback);
       return;
     }
 
-    // Destruir módulo anterior
-    if (_viewAtual && _viewAtual.destroyFn) {
+    if (_viewAtual?.destroyFn) {
       try { _viewAtual.destroyFn(); } catch (e) { console.warn(e); }
     }
 
     const config = MODULOS_VIEWS[moduleId];
-    const container = document.getElementById('appView');
+    const container = _prepararContainer(config);
+    if (!container) return;
 
-    if (!container) {
-      console.error('[router] Container #appView não encontrado');
+    try {
+      await _loadScript(moduleId, config, false);
+      await new Promise(r => setTimeout(r, 10));
+      if (typeof global[config.init] !== 'function') {
+        console.warn(`[router] ${config.init} ausente após cache normal. Forçando reload.`);
+        await _loadScript(moduleId, config, true);
+        await new Promise(r => setTimeout(r, 30));
+      }
+    } catch (err) {
+      container.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${err.message}</div>`;
       return;
     }
 
-    // Limpar container (opcional, mas evita sobreposição)
-    container.innerHTML = '';
-
-    // Verificar se o script já foi carregado (para evitar duplicidade)
-    const scriptId = `script-${moduleId}`;
-    if (!document.getElementById(scriptId)) {
-      // Carregar script dinamicamente
-      await new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.id = scriptId;
-        script.src = config.path;
-        script.onload = resolve;
-        script.onerror = () => reject(new Error(`Falha ao carregar ${config.path}`));
-        document.head.appendChild(script);
-      });
+    if (typeof global[config.init] !== 'function') {
+      container.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Módulo não implementado corretamente: ${config.init}</div>`;
+      return;
     }
 
-    // Aguardar um ciclo para garantir que as funções do módulo estejam no window
-    await new Promise(r => setTimeout(r, 10));
-
-    // Chamar função de inicialização do módulo
-    if (typeof global[config.init] === 'function') {
-      try {
-        global[config.init](_campanhaId);
-        _viewAtual = {
-          moduleId,
-          destroyFn: typeof global[config.destroy] === 'function' ? global[config.destroy] : null,
-          container,
-        };
-      } catch (err) {
-        console.error(`[router] Erro ao iniciar ${moduleId}:`, err);
-        container.innerHTML = `<div class="empty">❌ Erro ao carregar módulo</div>`;
-      }
-    } else {
-      console.error(`[router] Função de inicialização ${config.init} não encontrada`);
-      container.innerHTML = `<div class="empty">⚠️ Módulo não implementado corretamente</div>`;
+    try {
+      global[config.init](_campanhaId);
+      _viewAtual = { moduleId, destroyFn: typeof global[config.destroy] === 'function' ? global[config.destroy] : null, container };
+    } catch (err) {
+      console.error(`[router] Erro ao iniciar ${moduleId}:`, err);
+      container.innerHTML = `<div class="empty"><div class="empty-icon">❌</div>Erro ao carregar módulo.<br><small>${err.message || ''}</small></div>`;
     }
   }
 
-  // ─────────────────────────────────────────────────────────
-  // EXPORTAÇÃO PÚBLICA
-  // ─────────────────────────────────────────────────────────
   global.WWMX = global.WWMX || {};
-  global.WWMX.Router = {
-    init,
-    carregarModulo: _carregarModulo,
-    moduloPermitido: _moduloPermitido,
-  };
+  global.WWMX.Router = { init, carregarModulo: _carregarModulo, moduloPermitido: _moduloPermitido };
 
-  // Iniciar automaticamente quando o DOM estiver pronto
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init, { once: true });
-  } else {
-    init();
-  }
-
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+  else init();
 }(window));
