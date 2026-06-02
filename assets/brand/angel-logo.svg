@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 420" role="img" aria-labelledby="title desc">
+  <title id="title">ANGEL — Agente Núcleo de Gestão Eleitoral</title>
+  <desc id="desc">Logomarca ANGEL com A em verde, amarelo e azul, e barra de carregamento na letra E.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#06111f"/>
+      <stop offset="0.55" stop-color="#07101b"/>
+      <stop offset="1" stop-color="#020713"/>
+    </linearGradient>
+    <linearGradient id="lime" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b7ff00"/>
+      <stop offset="1" stop-color="#7bd500"/>
+    </linearGradient>
+    <linearGradient id="white" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e8edf4"/>
+    </linearGradient>
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#b7ff00" flood-opacity="0.22"/>
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+    <clipPath id="aClip">
+      <polygon points="180,62 342,292 280,292 179,142 80,292 20,292"/>
+    </clipPath>
+  </defs>
+
+  <rect width="1400" height="420" rx="0" fill="url(#bg)"/>
+  <ellipse cx="700" cy="210" rx="500" ry="180" fill="#0b1c2e" opacity="0.28"/>
+
+  <g transform="translate(110 54)" filter="url(#softGlow)">
+    <!-- A custom brasileiro -->
+    <polygon points="180,0 360,292 300,292 180,92 60,292 0,292" fill="url(#lime)"/>
+    <polygon points="180,102 282,292 228,292 180,204 132,292 78,292" fill="#ffdf00"/>
+    <path d="M126 292 A54 54 0 0 1 234 292 Z" fill="#0038ff"/>
+    <polygon points="196,238 203,256 222,256 207,267 213,286 196,275 180,286 186,267 171,256 190,256" fill="#fff"/>
+    <polygon points="180,0 360,292 300,292 180,92 60,292 0,292" fill="none" stroke="#1b7800" stroke-width="4" opacity="0.22"/>
+
+    <!-- N -->
+    <path d="M410 38 L462 38 L586 210 L586 38 L638 38 L638 292 L586 292 L462 120 L462 292 L410 292 Z" fill="url(#white)"/>
+
+    <!-- G -->
+    <path d="M720 38 L940 38 L940 88 L768 88 Q735 88 735 121 L735 210 Q735 242 768 242 L895 242 L895 188 L805 188 L805 140 L950 140 L950 292 L766 292 Q684 292 684 212 L684 118 Q684 38 720 38 Z" fill="url(#white)"/>
+
+    <!-- E com barra de carregamento quadrada -->
+    <rect x="1012" y="38" width="190" height="50" fill="url(#white)"/>
+    <rect x="1012" y="242" width="190" height="50" fill="url(#white)"/>
+    <rect x="1012" y="140" width="190" height="50" fill="#e8edf4" opacity="0.22"/>
+    <rect x="1012" y="140" width="142" height="50" fill="url(#lime)"/>
+    <rect x="1154" y="140" width="8" height="50" fill="#ffdf00"/>
+    <rect x="1162" y="140" width="40" height="50" fill="#0038ff"/>
+    <rect x="1012" y="140" width="190" height="50" fill="none" stroke="#e8edf4" stroke-width="2" opacity="0.65"/>
+
+    <!-- L -->
+    <path d="M1260 38 L1312 38 L1312 242 L1390 242 L1390 292 L1260 292 Z" fill="url(#white)"/>
+    <polygon points="1388,242 1430,242 1460,292 1418,292" fill="#ffdf00" transform="translate(-70 0)"/>
+  </g>
+
+  <g transform="translate(0 0)">
+    <rect x="230" y="336" width="38" height="5" fill="#b7ff00"/>
+    <rect x="278" y="336" width="38" height="5" fill="#ffdf00"/>
+    <text x="700" y="355" text-anchor="middle" fill="#ffffff" font-family="DM Sans, Arial, sans-serif" font-size="36" letter-spacing="6">Agente Núcleo de Gestão Eleitoral</text>
+    <rect x="1084" y="336" width="38" height="5" fill="#b7ff00"/>
+    <rect x="1132" y="336" width="38" height="5" fill="#ffdf00"/>
+  </g>
+</svg>
