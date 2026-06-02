@@ -1,0 +1,192 @@
+/* ── ANGEL HOME / VISÃO GERAL ── */
+.angel-home {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.angel-hero {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top right, rgba(225,46,42,0.22), transparent 38%),
+    linear-gradient(135deg, rgba(30,77,183,0.26), rgba(17,19,23,0.96));
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-md);
+}
+.angel-kicker {
+  font-size: 11px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1.8px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+.angel-hero h1 {
+  margin: 0 0 8px 0;
+  font-size: clamp(24px, 8vw, 42px);
+  line-height: 1;
+}
+.angel-hero p {
+  color: var(--text-secondary);
+  max-width: 680px;
+  font-size: 14px;
+}
+.angel-hero-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 16px;
+}
+.angel-focus,
+.angel-user {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.18);
+  color: var(--text);
+  border-radius: var(--radius-full);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.angel-user { color: var(--text-secondary); }
+.angel-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.angel-metric {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+.angel-metric-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface2);
+  flex-shrink: 0;
+}
+.angel-metric strong {
+  display: block;
+  font-family: var(--font-title);
+  font-size: 20px;
+  line-height: 1;
+}
+.angel-metric span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 3px;
+}
+.angel-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.angel-module-card {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 14px;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: var(--font-sans);
+}
+.angel-module-card:hover,
+.angel-module-card:active {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, var(--surface2), var(--surface));
+  transform: translateY(-1px);
+}
+.angel-module-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--accent-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+.angel-module-card strong {
+  display: block;
+  font-family: var(--font-title);
+  font-size: 15px;
+  margin-bottom: 3px;
+}
+.angel-module-card span {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.angel-module-card em {
+  color: var(--accent);
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.angel-flow {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+}
+.angel-flow-track {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.angel-flow-step {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+.angel-flow-step b {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  margin-bottom: 8px;
+}
+.angel-flow-step strong,
+.angel-flow-step span { display: block; }
+.angel-flow-step span {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-top: 3px;
+}
+@media (max-width: 720px) {
+  .angel-strip,
+  .angel-card-grid,
+  .angel-flow-track { grid-template-columns: 1fr; }
+  .angel-home { padding: 12px; }
+  .angel-module-card { grid-template-columns: 40px 1fr; }
+  .angel-module-card em { grid-column: 2; }
+}

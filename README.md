@@ -1,6 +1,6 @@
 # ANGEL — WWMX Campaign Platform
 
-Sistema de gestão de campanhas eleitorais com hierarquia de acesso, gamificação, mapa em tempo real e automação via n8n + Claude AI.
+Sistema de gestão de campanhas eleitorais com hierarquia de acesso, gamificação, mapa em tempo real, visão geral em cards por perfil e automação via n8n + Claude AI.
 
 ---
 
@@ -49,6 +49,15 @@ wwmx/
     └── claude-builder.js   ← Cloud Function: Claude AI constrói campanha
 ```
 
+
+## Melhorias desta versão
+
+- Nova **Visão Geral** por perfil, em formato de coleção de cards, para reduzir excesso de informação na primeira tela.
+- Linguagem ajustada para **gestão de equipe** em vez de termos mais agressivos como controle.
+- Router atualizado para usar rótulos humanos, ordem de módulos por perfil e fallback visual de carregamento.
+- Canal de **Denúncias** incluído no roteamento e na navegação quando o módulo está ativo.
+- Compatibilidade de módulo eleitoral com os ids `eleitoral` e `inteligencia-eleitoral`.
+
 ## Firebase
 
 - **Firestore**: dados permanentes (campanhas, config, locais, logs, histórico)
@@ -58,9 +67,9 @@ wwmx/
 
 | Perfil | Senha (demo) | Acesso |
 |--------|-------------|--------|
-| Campo | `demo2026` | Mapa, percursos, inventário, rotas |
-| Coordenador | `demo2026` | Dashboard, estoque, equipe, rotas, CRM |
-| Candidato | `admin2026` | Painel, KPIs, logs, agentes |
+| Campo | `demo2026` | Visão geral, mapa, percursos, inventário, rotas, denúncias |
+| Coordenador | `demo2026` | Visão geral, dashboard, estoque, gestão de equipe, rotas, CRM, denúncias |
+| Candidato | `admin2026` | Visão geral, painel, KPIs, mapa, CRM, denúncias, logs, agentes |
 | Master | `master2026` | Campanhas, planos, clientes, banco |
 
 ## Como rodar localmente
