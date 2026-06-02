@@ -6,6 +6,8 @@
 (function (global) {
   'use strict';
 
+  const BUILD_TAG = '20260602-hotfix-rotas-estoque-v3';
+
   const MODULOS_VIEWS = {
     central:      { path: 'modulos/central.js', init: 'centralInit', destroy: 'centralDestroy', viewId: 'centralView' },
     mapa:         { path: 'campo/mapa.js', init: 'mapaInit', destroy: 'mapaDestroy', viewId: 'mapaView' },
@@ -46,18 +48,8 @@
     campo: ['central','mapa','meucampo','percursos','meuinventario','minhasrotas','denuncias'],
   };
 
-  const PERMISSOES = {
-    master: ORDEM.master,
-    candidato: ORDEM.candidato,
-    coord: ORDEM.coord,
-    campo: ORDEM.campo,
-  };
-
-  const OPCIONAIS = {
-    crm: ['crm'],
-    denuncias: ['denuncias'],
-    eleitoral: ['eleitoral', 'inteligencia-eleitoral'],
-  };
+  const PERMISSOES = { master: ORDEM.master, candidato: ORDEM.candidato, coord: ORDEM.coord, campo: ORDEM.campo };
+  const OPCIONAIS = { crm: ['crm'], denuncias: ['denuncias'], eleitoral: ['eleitoral', 'inteligencia-eleitoral'] };
 
   function init() {
     global.addEventListener('wwmx:session-ready', (e) => {
@@ -67,8 +59,7 @@
       _carregarModulosAtivos().then(() => {
         _montarNavSelect();
         const hash = global.location.hash.slice(1);
-        const moduloInicial = hash || _obterPrimeiroModuloPermitido();
-        _carregarModulo(moduloInicial);
+        _carregarModulo(hash || _obterPrimeiroModuloPermitido());
       });
     });
 
@@ -124,11 +115,31 @@
     return sel?.value || Object.keys(MODULOS_VIEWS).find(_moduloPermitido) || 'mapa';
   }
 
-  function _prepararContainer(moduleId, config) {
+  function _prepararContainer(config) {
     const container = document.getElementById('appView');
     if (!container) return null;
     container.innerHTML = `<div class="view active" id="${config.viewId}" style="display:flex;flex-direction:column;min-height:100%;"></div>`;
     return container;
+  }
+
+  function _scriptSrc(path, forceReload = false) {
+    const sep = path.includes('?') ? '&' : '?';
+    return `${path}${sep}v=${encodeURIComponent(BUILD_TAG)}${forceReload ? `&r=${Date.now()}` : ''}`;
+  }
+
+  async function _loadScript(moduleId, config, forceReload = false) {
+    const scriptId = `script-${moduleId}`;
+    const old = document.getElementById(scriptId);
+    if (old && !forceReload) return;
+    if (old) old.remove();
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = _scriptSrc(config.path, forceReload);
+      script.onload = resolve;
+      script.onerror = () => reject(new Error(`Falha ao carregar ${config.path}`));
+      document.head.appendChild(script);
+    });
   }
 
   async function _carregarModulo(moduleId) {
@@ -144,27 +155,22 @@
     }
 
     const config = MODULOS_VIEWS[moduleId];
-    const container = _prepararContainer(moduleId, config);
+    const container = _prepararContainer(config);
     if (!container) return;
 
-    const scriptId = `script-${moduleId}`;
-    if (!document.getElementById(scriptId)) {
-      try {
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.id = scriptId;
-          script.src = config.path;
-          script.onload = resolve;
-          script.onerror = () => reject(new Error(`Falha ao carregar ${config.path}`));
-          document.head.appendChild(script);
-        });
-      } catch (err) {
-        container.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${err.message}</div>`;
-        return;
+    try {
+      await _loadScript(moduleId, config, false);
+      await new Promise(r => setTimeout(r, 10));
+      if (typeof global[config.init] !== 'function') {
+        console.warn(`[router] ${config.init} ausente após cache normal. Forçando reload.`);
+        await _loadScript(moduleId, config, true);
+        await new Promise(r => setTimeout(r, 30));
       }
+    } catch (err) {
+      container.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${err.message}</div>`;
+      return;
     }
 
-    await new Promise(r => setTimeout(r, 10));
     if (typeof global[config.init] !== 'function') {
       container.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Módulo não implementado corretamente: ${config.init}</div>`;
       return;
@@ -172,11 +178,7 @@
 
     try {
       global[config.init](_campanhaId);
-      _viewAtual = {
-        moduleId,
-        destroyFn: typeof global[config.destroy] === 'function' ? global[config.destroy] : null,
-        container,
-      };
+      _viewAtual = { moduleId, destroyFn: typeof global[config.destroy] === 'function' ? global[config.destroy] : null, container };
     } catch (err) {
       console.error(`[router] Erro ao iniciar ${moduleId}:`, err);
       container.innerHTML = `<div class="empty"><div class="empty-icon">❌</div>Erro ao carregar módulo.<br><small>${err.message || ''}</small></div>`;
