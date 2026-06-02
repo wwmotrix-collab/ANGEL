@@ -1,0 +1,78 @@
+{
+  "generatedAt": "2026-06-02T00:00:00.000Z",
+  "files": {
+    "campaign.input.json": {
+      "campanhaId": "carlos-mendes-2026-viamao",
+      "candidato": "Dr. Carlos Mendes",
+      "nomeUrna": "Carlos Mendes",
+      "numero": "40",
+      "partido": "PSB",
+      "coligacao": "Frente Democrática",
+      "cargo": "dep_estadual",
+      "cidade": "Viamão",
+      "uf": "RS",
+      "ano": "2026",
+      "planoAssinatura": "inteligencia"
+    },
+    "history.input.json": {
+      "jaFoiCandidato": "sim",
+      "anoAnterior": "2022",
+      "cargoAnterior": "Deputado Estadual",
+      "partidoAnterior": "PSB",
+      "cidadeUfAnterior": "Viamão/RS",
+      "numeroAnterior": "40",
+      "observacoes": "Buscar histórico próprio e comparar com partido/coligação."
+    },
+    "automation.input.json": {
+      "autoAnaliseEleitoral": true,
+      "autoTerritorio": true,
+      "autoGeocoding": true,
+      "autoPins": true,
+      "autoSeed": true,
+      "autoPR": true,
+      "autoCompliance": true,
+      "autoIntegracoes": false
+    },
+    "skins.config.json": {
+      "developerCampaign.skin": { "active": true },
+      "subscriptionPlan.skin": { "active": true, "plano": "inteligencia", "limites": { "coords": 10, "campo": 200, "geocoding": true, "automacoes": false } },
+      "electoralAnalysis.skin": { "active": true },
+      "territoryGeocoding.skin": { "active": true },
+      "fieldOps.skin": { "active": true },
+      "brandingExperience.skin": { "active": true },
+      "legalCompliance.skin": { "active": true },
+      "automationIntegrations.skin": { "active": false }
+    },
+    "modules.config.json": {
+      "modulosAtivos": ["mapa", "crm", "estoque", "rotas", "denuncias", "eleitoral", "inteligencia-eleitoral"],
+      "regras": {
+        "campo": ["mapa", "meucampo", "percursos", "meuinventario", "minhasrotas", "denuncias"],
+        "coord": ["dash", "mapa", "crm", "estoque", "rotas", "denuncias", "eleitoral"],
+        "candidato": ["admindash", "adminmapa", "adminagentes", "adminequipe", "dash", "crm", "denuncias", "eleitoral"],
+        "master": ["master-gerador", "master-campanhas", "master-planos", "master-banco", "master-clientes"]
+      }
+    },
+    "firebase.config.json": {
+      "projectId": "angel-edd10",
+      "authDomain": "angel-edd10.firebaseapp.com",
+      "databaseURL": "https://angel-edd10-default-rtdb.firebaseio.com",
+      "storageBucket": "angel-edd10.firebasestorage.app",
+      "messagingSenderId": "468748352830",
+      "appId": "1:468748352830:web:75e9dd534710a85401406f"
+    },
+    "seed.config.json": {
+      "campanhaId": "carlos-mendes-2026-viamao",
+      "firestore": ["campanhas/{id}", "campanhas/{id}/config/main", "master_campanhas/{id}"],
+      "rtdb": ["campanhas/{id}/pins", "campanhas/{id}/crm_liderancas", "campanhas/{id}/estoque_central", "campanhas/{id}/rotas", "campanhas/{id}/denuncias", "campanhas/{id}/militantes"],
+      "territorio": ["locais_votacao", "secoes_eleitorais", "zonas_eleitorais", "pins_eleitorais", "geo_cache", "revisao_geo"],
+      "analise": ["historico_candidato", "historico_partido", "ranking_zonas", "ranking_locais", "metas_por_territorio"]
+    },
+    "deploy.config.json": {
+      "githubRepo": "wwmotrix-collab/ANGEL",
+      "branchBase": "main",
+      "branchSugerida": "campaign/carlos-mendes-2026-viamao",
+      "vercelProject": "angel-liart.vercel.app",
+      "previewEsperado": true
+    }
+  }
+}
