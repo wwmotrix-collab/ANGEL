@@ -1,0 +1,86 @@
+/* ANGEL brand override */
+:root {
+  --angel-lime: #b7ff00;
+  --angel-yellow: #ffdf00;
+  --angel-blue: #0038ff;
+}
+
+.login-logo,
+.header-logo {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.login-logo {
+  width: min(92vw, 640px);
+  max-width: 640px;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.login-logo-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 14px;
+  box-shadow: 0 14px 38px rgba(0, 0, 0, .42);
+}
+
+.login-sub {
+  display: none;
+}
+
+.header {
+  gap: 12px;
+}
+
+.header-logo {
+  flex: 0 1 310px;
+  min-width: 170px;
+  max-width: 340px;
+}
+
+.header-logo-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 58px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.header-badge.coord,
+.header-badge {
+  background: rgba(183,255,0,.10);
+  color: var(--angel-lime);
+  border-color: rgba(183,255,0,.32);
+}
+
+.nivel-btn.active,
+#navSelect:focus,
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--angel-lime);
+  box-shadow: 0 0 0 2px rgba(183,255,0,.10);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--angel-lime), #75c900);
+  color: #07101b;
+  font-weight: 800;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #c9ff32, #86df00);
+}
+
+@media (max-width: 560px) {
+  .login-logo { width: 92vw; }
+  .header { padding: 8px 10px; }
+  .header-logo { flex-basis: 190px; min-width: 150px; }
+  .header-logo-img { max-height: 44px; }
+}
