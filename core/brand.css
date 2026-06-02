@@ -1,8 +1,8 @@
 /* ANGEL brand override */
 :root {
-  --angel-lime: #b7ff00;
+  --angel-lime: #98ff00;
   --angel-yellow: #ffdf00;
-  --angel-blue: #0038ff;
+  --angel-blue: #043bff;
 }
 
 .login-logo,
@@ -15,9 +15,9 @@
 }
 
 .login-logo {
-  width: min(92vw, 640px);
-  max-width: 640px;
-  margin-bottom: 12px;
+  width: min(86vw, 540px);
+  max-width: 540px;
+  margin: 0 auto 18px;
   display: block;
 }
 
@@ -25,8 +25,11 @@
   display: block;
   width: 100%;
   height: auto;
-  border-radius: 14px;
-  box-shadow: 0 14px 38px rgba(0, 0, 0, .42);
+  max-height: 180px;
+  object-fit: contain;
+  object-position: center;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .login-sub {
@@ -34,29 +37,31 @@
 }
 
 .header {
-  gap: 12px;
+  gap: 10px;
 }
 
 .header-logo {
-  flex: 0 1 310px;
-  min-width: 170px;
-  max-width: 340px;
+  flex: 1 1 auto;
+  min-width: 128px;
+  max-width: 260px;
+  display: flex;
+  align-items: center;
 }
 
 .header-logo-img {
   display: block;
   width: 100%;
   height: auto;
-  max-height: 58px;
+  max-height: 42px;
   object-fit: contain;
   object-position: left center;
 }
 
 .header-badge.coord,
 .header-badge {
-  background: rgba(183,255,0,.10);
+  background: rgba(152,255,0,.10);
   color: var(--angel-lime);
-  border-color: rgba(183,255,0,.32);
+  border-color: rgba(152,255,0,.32);
 }
 
 .nivel-btn.active,
@@ -65,7 +70,7 @@ input:focus,
 textarea:focus,
 select:focus {
   border-color: var(--angel-lime);
-  box-shadow: 0 0 0 2px rgba(183,255,0,.10);
+  box-shadow: 0 0 0 2px rgba(152,255,0,.10);
 }
 
 .btn-primary {
@@ -75,12 +80,19 @@ select:focus {
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #c9ff32, #86df00);
+  background: linear-gradient(135deg, #b8ff28, #86df00);
 }
 
 @media (max-width: 560px) {
-  .login-logo { width: 92vw; }
+  .login-logo { width: 88vw; max-width: 420px; margin-bottom: 20px; }
+  .login-logo-img { max-height: 150px; }
   .header { padding: 8px 10px; }
-  .header-logo { flex-basis: 190px; min-width: 150px; }
-  .header-logo-img { max-height: 44px; }
+  .header-logo { max-width: 190px; min-width: 122px; }
+  .header-logo-img { max-height: 34px; }
+  .header-actions { gap: 6px; }
+}
+
+@media (max-width: 390px) {
+  .header-logo { max-width: 160px; }
+  .header-logo-img { max-height: 30px; }
 }
