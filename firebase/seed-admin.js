@@ -113,7 +113,7 @@ async function seedDemo() {
 
   await writeFirestore(firestore, `campanhas/${cid}`, config);
   await writeFirestore(firestore, `campanhas/${cid}/config/main`, config);
-  await writeFirestore(firestore, `master/campanhas/${cid}`, {
+  await writeFirestore(firestore, `master_campanhas/${cid}`, {
     id: cid,
     nomeExibicao: config.nomeExibicao,
     numero: config.numero,
