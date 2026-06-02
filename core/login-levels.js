@@ -1,0 +1,10 @@
+(function (global) {
+  'use strict';
+  var clicks = 0;
+  var map = { 'nb-campo': 'campo', 'nb-coord': 'coord', 'nb-admin': 'candidato', 'nb-master': 'master' };
+  function info(msg) { var el = document.getElementById('loginError'); if (!el) return; el.textContent = msg; el.style.display = 'block'; el.style.color = 'var(--accent)'; }
+  function choose(level, btn) { global._nivelLogin = level; global.nivelSel = level; Array.prototype.forEach.call(document.querySelectorAll('.nivel-btn'), function (b) { b.classList.remove('active'); }); if (btn) btn.classList.add('active'); var err = document.getElementById('loginError'); if (err) err.style.display = 'none'; }
+  function reveal() { clicks += 1; var cand = document.getElementById('nb-admin'); var master = document.getElementById('nb-master'); if (clicks >= 3 && cand && cand.style.display === 'none') { cand.style.display = 'flex'; info('Acesso de candidato liberado'); } if (clicks >= 5 && master && master.style.display === 'none') { master.style.display = 'flex'; info('Acesso master liberado'); } }
+  function bind() { Object.keys(map).forEach(function (id) { var btn = document.getElementById(id); if (!btn || btn.dataset.levelsBound) return; btn.dataset.levelsBound = '1'; btn.addEventListener('click', function () { choose(map[id], btn); }, true); }); var logo = document.getElementById('loginLogoClick'); if (logo && !logo.dataset.levelsLogoBound) { logo.dataset.levelsLogoBound = '1'; logo.addEventListener('click', reveal, true); } var entrar = document.getElementById('btnEntrar'); if (entrar && !entrar.dataset.levelsEnterBound) { entrar.dataset.levelsEnterBound = '1'; entrar.addEventListener('click', function (event) { if (!global._nivelLogin || typeof global.fazerLogin !== 'function') return; event.preventDefault(); event.stopImmediatePropagation(); global.fazerLogin(); }, true); } if (!global._nivelLogin) global._nivelLogin = 'campo'; if (!global.nivelSel) global.nivelSel = 'campo'; }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once: true }); else bind();
+})(window);
