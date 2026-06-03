@@ -6,11 +6,15 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>WWMX Campaign</title>
+  <title>ANGEL — Agente Núcleo de Gestão Eleitoral</title>
+
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
   <link rel="stylesheet" href="core/design.css">
   <link rel="stylesheet" href="core/angel-home.css">
+  <link rel="stylesheet" href="core/brand.css">
+
   <style>
     html, body { height:100%; overflow:hidden; }
     #app { height:100%; display:none; flex-direction:column; }
@@ -20,9 +24,13 @@
   </style>
 </head>
 <body>
+
 <div id="loginScreen">
-  <div class="login-logo" id="loginLogoClick"><div class="login-logo-cand"><small>Deputado Estadual</small>DR. CARLOS<br>MENDES</div><div class="login-logo-num">40</div></div>
-  <div class="login-sub">WWMX Campaign · Viamão 2026</div>
+  <div class="login-logo" id="loginLogoClick">
+    <img class="login-logo-img" src="assets/brand/angel-logo.svg" alt="ANGEL — Agente Núcleo de Gestão Eleitoral">
+  </div>
+  <div class="login-sub">Agente Núcleo de Gestão Eleitoral</div>
+
   <div class="login-card">
     <div class="login-title">Entrar como</div>
     <div class="nivel-btns">
@@ -31,23 +39,37 @@
       <button class="nivel-btn" id="nb-admin" style="display:none;"><span class="nb-icon">👑</span><span class="nb-label">Candidato</span></button>
       <button class="nivel-btn" id="nb-master" style="display:none;"><span class="nb-icon">⚙️</span><span class="nb-label">Master</span></button>
     </div>
+
     <div class="field"><label>Seu nome</label><input type="text" id="loginNome" placeholder="Nome completo" autocomplete="off" autocorrect="off"></div>
     <div class="field"><label>Senha</label><input type="password" id="loginSenha" placeholder="Senha de campanha"></div>
+
     <button class="btn btn-primary w-full" id="btnEntrar">Entrar</button>
     <div class="login-error" id="loginError" style="display:none;"></div>
   </div>
 </div>
+
 <div id="app">
   <div class="header">
-    <div class="header-logo" id="headerLogo"><div class="header-logo-name"><small>Dep. Estadual</small>DR. CARLOS MENDES</div><div class="header-logo-num">40</div></div>
+    <div class="header-logo" id="headerLogo">
+      <img class="header-logo-img" src="assets/brand/angel-logo.svg" alt="ANGEL — Agente Núcleo de Gestão Eleitoral">
+    </div>
+
     <div class="header-badge" id="nivelBadge">Campo</div>
-    <div class="header-actions"><div id="fbStatus"><span id="fbDot"></span><span id="fbTxt">sync</span></div><button class="icon-btn" id="btnCentrar" title="Centralizar mapa">🎯</button><button class="icon-btn" onclick="WWMX.Auth.sair()" title="Sair">🚪</button></div>
+
+    <div class="header-actions">
+      <div id="fbStatus"><span id="fbDot"></span><span id="fbTxt">sync</span></div>
+      <button class="icon-btn" id="btnCentrar" title="Centralizar mapa">🎯</button>
+      <button class="icon-btn" onclick="WWMX.Auth.sair()" title="Sair">🚪</button>
+    </div>
   </div>
+
   <div class="nav-select-wrap"><select id="navSelect"></select><span style="font-size:12px;color:var(--muted);pointer-events:none;margin-left:-24px;">▾</span></div>
   <div id="appView"></div>
 </div>
+
 <div class="toast-container" id="toastContainer"></div>
 <div id="lightbox" onclick="fecharLightbox()"><button id="lightbox-close" onclick="fecharLightbox()">✕</button><img id="lightboxImg" src="" alt=""></div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -60,6 +82,7 @@
 <script src="core/login-levels.js"></script>
 <script src="core/xp.js"></script>
 <script src="core/router.js"></script>
+
 <script>
 function abrirLightbox(src) { document.getElementById('lightboxImg').src = src; document.getElementById('lightbox').classList.add('show'); }
 function fecharLightbox() { document.getElementById('lightbox').classList.remove('show'); }
