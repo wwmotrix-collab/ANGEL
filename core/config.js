@@ -28,28 +28,31 @@
   };
 
   const TIPO_CONFIG = { ...TIPO_MATERIAL, ...TIPO_EVENTO };
-
   const NIVEL      = { MASTER:'master', CANDIDATO:'candidato', COORDENADOR:'coord', CAMPO:'campo' };
   const NIVEL_RANK = { campo:1, coord:2, candidato:3, master:4 };
 
   const NAV_LABELS = {
+    central:'✨ Visão Geral',
     mapa:'🗺️  Mapa', meucampo:'📍 Meu Campo', percursos:'🚗 Percursos',
     meuinventario:'📦 Meu Inventário', minhasrotas:'🎯 Minhas Rotas',
-    dash:'📊 Dashboard', eleitoral:'🗳️  Eleitoral', crm:'👥 CRM',
-    militantes:'⚔️  Militantes', estoque:'📦 Estoque', rotas:'🚗 Rotas', denuncias:'🚨 Denúncias',
-    admindash:'👑 Painel', adminmapa:'🗺️  Mapa', adminagentes:'⭐ Agentes',
-    adminequipe:'⚔️  Equipe', logs:'📋 Logs',
+    dash:'📊 Dashboard', eleitoral:'🗳️  Eleitoral', crm:'👥 CRM Lideranças',
+    militantes:'⚔️  Gestão de Equipe', estoque:'📦 Estoque Central', rotas:'🚗 Planejamento de Rotas', denuncias:'🚨 Denúncias',
+    admindash:'👑 Painel do Candidato', adminmapa:'🗺️  Mapa Consolidado', adminagentes:'⭐ Agentes/Lideranças',
+    adminequipe:'⚔️  Equipe de Campo', logs:'📋 Logs',
+    'master-gerador':'🧠 Gerador PicoClaw',
     'master-campanhas':'🏗️  Campanhas','master-planos':'💰 Planos',
     'master-banco':'🗄️  Banco','master-clientes':'🤝 Clientes',
   };
 
   const MODULOS_DISPONIVEIS = [
-    { id:'crm',                    label:'CRM Lideranças',        icon:'👥' },
-    { id:'agenda',                 label:'Agenda de Eventos',     icon:'📅' },
-    { id:'denuncias',              label:'Canal de Denúncias',    icon:'🚨' },
-    { id:'estreleiro',             label:'Estreleiro',            icon:'🌟' },
-    { id:'pre-campanha',           label:'Pré-Campanha',          icon:'🌱' },
-    { id:'inteligencia-eleitoral', label:'Inteligência Eleitoral',icon:'🗳️' },
+    { id:'crm', label:'CRM Lideranças', icon:'👥' },
+    { id:'agenda', label:'Agenda de Eventos', icon:'📅' },
+    { id:'denuncias', label:'Canal de Denúncias', icon:'🚨' },
+    { id:'estoque', label:'Estoque e Materiais', icon:'📦' },
+    { id:'rotas', label:'Planejamento de Rotas', icon:'🚗' },
+    { id:'estreleiro', label:'Estreleiro', icon:'🌟' },
+    { id:'pre-campanha', label:'Pré-Campanha', icon:'🌱' },
+    { id:'inteligencia-eleitoral', label:'Inteligência Eleitoral', icon:'🗳️' },
   ];
 
   const GUILDA_RANKS = [
@@ -63,9 +66,7 @@
   ];
 
   function getGuildaRank(xp) {
-    for (let i = GUILDA_RANKS.length - 1; i >= 0; i--) {
-      if (xp >= GUILDA_RANKS[i].xpMin) return GUILDA_RANKS[i];
-    }
+    for (let i = GUILDA_RANKS.length - 1; i >= 0; i--) if (xp >= GUILDA_RANKS[i].xpMin) return GUILDA_RANKS[i];
     return GUILDA_RANKS[0];
   }
 
@@ -79,11 +80,7 @@
   };
 
   global.WWMX = global.WWMX || {};
-  global.WWMX.Config = {
-    TIPO_MATERIAL, TIPO_EVENTO, TIPO_CONFIG, NIVEL, NIVEL_RANK,
-    NAV_LABELS, MODULOS_DISPONIVEIS, GUILDA_RANKS, DEFAULT_CONFIG, getGuildaRank,
-  };
-
+  global.WWMX.Config = { TIPO_MATERIAL, TIPO_EVENTO, TIPO_CONFIG, NIVEL, NIVEL_RANK, NAV_LABELS, MODULOS_DISPONIVEIS, GUILDA_RANKS, DEFAULT_CONFIG, getGuildaRank };
   global.TIPO_MATERIAL = TIPO_MATERIAL;
   global.TIPO_EVENTO   = TIPO_EVENTO;
   global.TIPO_CONFIG   = TIPO_CONFIG;
@@ -91,5 +88,4 @@
   global.NIVEL_RANK    = NIVEL_RANK;
   global.GUILDA_RANKS  = GUILDA_RANKS;
   global.getGuildaRank = getGuildaRank;
-
 }(window));
