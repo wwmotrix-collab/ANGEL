@@ -76,6 +76,11 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="core/config.js"></script>
+<script>
+window.WWMX = window.WWMX || {};
+window.WWMX.Referencia = { id: 'angel-referencia-viamao', nome: 'Campanha Referência ANGEL · Viamão' };
+try { if (!localStorage.getItem('wwmx_campanha')) localStorage.setItem('wwmx_campanha', window.WWMX.Referencia.id); } catch (_) {}
+</script>
 <script src="core/ui.js"></script>
 <script src="core/firebase.js"></script>
 <script src="core/auth.js"></script>
