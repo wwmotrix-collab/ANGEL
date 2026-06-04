@@ -40,6 +40,7 @@
     admindash:'👑 Painel do Candidato', adminmapa:'🗺️  Mapa Consolidado', adminagentes:'⭐ Agentes/Lideranças',
     adminequipe:'⚔️  Equipe de Campo', logs:'📋 Logs',
     'master-gerador':'🧠 Gerador PicoClaw',
+    'master-importador':'🗳️ Importador TSE/TRE',
     'master-campanhas':'🏗️  Campanhas','master-planos':'💰 Planos',
     'master-banco':'🗄️  Banco','master-clientes':'🤝 Clientes',
   };
