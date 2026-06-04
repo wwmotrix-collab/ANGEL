@@ -232,6 +232,34 @@
 
       const pacoteSeguro = safeObject(pacote);
 
+      const campanhaPublica = safeObject({
+        ...pacote.campaign,
+        id,
+        campanhaId: id,
+        modulosAtivos: pacote.modules.modulosAtivos,
+        skinsAtivas: pacote.modules.skinsAtivas,
+        picoclawStatus: 'gerado',
+        atualizadoEm: Date.now()
+      });
+
+      const configMain = safeObject({
+        ...pacote.campaign,
+        modulosAtivos: pacote.modules.modulosAtivos,
+        skinsAtivas: pacote.modules.skinsAtivas,
+        senhas: pacote.senhas,
+        historico: pacote.historico,
+        automacoes: pacote.automacoes,
+        deploy: pacote.deploy,
+        atualizadoEm: Date.now()
+      });
+
+      // Firestore é o índice usado pela aba Master > Campanhas.
+      if (global.WWMX?.fs?.setDoc) {
+        await WWMX.fs.setDoc(campanhaPublica, 'campanhas', id);
+        await WWMX.fs.setDoc(configMain, 'campanhas', id, 'config', 'main');
+      }
+
+
       await WWMX.db.set(`master_campanhas/${id}`, {
         ...safeObject(pacote.campaign),
         pacote: pacoteSeguro,
