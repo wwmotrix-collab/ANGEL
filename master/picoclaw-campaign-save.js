@@ -1,12 +1,10 @@
 /**
  * master/picoclaw-campaign-save.js
  * ANGEL · PicoClaw Campaign Pipeline
- * Ciclo 1: formulário Master -> campanha real no Firebase.
+ * Salva campanha real evitando chaves inválidas no Firebase RTDB.
  */
 (function (global) {
   'use strict';
-
-  const REF_ID = 'angel-referencia-viamao';
 
   function slug(value) {
     return String(value || '')
@@ -18,13 +16,8 @@
       .slice(0, 64) || 'campanha-sem-nome';
   }
 
-  function val(id) {
-    return document.getElementById(id)?.value?.trim() || '';
-  }
-
-  function checked(id) {
-    return !!document.getElementById(id)?.checked;
-  }
+  function val(id) { return document.getElementById(id)?.value?.trim() || ''; }
+  function checked(id) { return !!document.getElementById(id)?.checked; }
 
   function toast(msg, type) {
     if (global.WWMX?.UI?.showToast) WWMX.UI.showToast(msg, type || 'success');
@@ -35,44 +28,34 @@
     }
   }
 
+  function safeKey(key) {
+    return String(key || 'key')
+      .replace(/[.#$\/[\]]/g, '_')
+      .replace(/^_+|_+$/g, '') || 'key';
+  }
+
+  function safeObject(value) {
+    if (Array.isArray(value)) return value.map(safeObject);
+    if (!value || typeof value !== 'object') return value;
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [safeKey(k), safeObject(v)]));
+  }
+
   function modulosPorPlano(plano) {
-    const base = [
-      'mapa',
-      'meucampo',
-      'percursos',
-      'meuinventario',
-      'minhasrotas',
-      'dash',
-      'admindash',
-      'adminmapa',
-      'adminagentes',
-      'adminequipe'
-    ];
+    const base = ['mapa','meucampo','percursos','meuinventario','minhasrotas','dash','admindash','adminmapa','adminagentes','adminequipe'];
+    if (plano === 'starter') return [...base, 'crm', 'denuncias'];
+    if (plano === 'pro') return [...base, 'crm', 'denuncias', 'estoque', 'rotas', 'agenda'];
+    if (plano === 'elite') return [...base, 'crm', 'denuncias', 'estoque', 'rotas', 'agenda', 'estreleiro', 'pre-campanha', 'eleitoral', 'inteligencia-eleitoral'];
+    return [...base, 'crm', 'denuncias', 'estoque', 'rotas', 'agenda', 'estreleiro', 'pre-campanha', 'eleitoral', 'inteligencia-eleitoral', 'gamificacao', 'automacoes'];
+  }
 
-    if (plano === 'essencial') {
-      return [...base, 'estoque'];
-    }
-
-    if (plano === 'operacao') {
-      return [...base, 'crm', 'estoque', 'rotas', 'denuncias'];
-    }
-
-    if (plano === 'inteligencia') {
-      return [...base, 'crm', 'estoque', 'rotas', 'denuncias', 'eleitoral', 'inteligencia-eleitoral'];
-    }
-
-    return [
-      ...base,
-      'crm',
-      'estoque',
-      'rotas',
-      'denuncias',
-      'eleitoral',
-      'inteligencia-eleitoral',
-      'agenda',
-      'gamificacao',
-      'automacoes'
-    ];
+  function limitesPorPlano(plano) {
+    const defaults = {
+      starter: { coordenadores: 2, campo: 15 },
+      pro: { coordenadores: 5, campo: 60 },
+      elite: { coordenadores: 10, campo: 200, geocoding: true },
+      personalizado: { coordenadores: 999, campo: 9999, geocoding: true, automacoes: true }
+    };
+    return defaults[plano] || defaults.pro;
   }
 
   function gerarPacote() {
@@ -80,23 +63,30 @@
     const nomeUrna = val('nomeUrna') || candidato;
     const ano = val('ano') || '2026';
     const cidade = val('cidade') || 'cidade';
-    const plano = val('plano') || 'essencial';
+    const plano = val('plano') || 'pro';
     const campanhaId = slug(`${nomeUrna}-${ano}-${cidade}`);
+    const limitesPadrao = limitesPorPlano(plano);
 
     const campaign = {
       campanhaId,
+      id: campanhaId,
       candidato,
       nomeUrna,
+      nomeExibicao: nomeUrna,
       numero: val('numero'),
       partido: val('partido'),
       coligacao: val('coligacao'),
       cargo: val('cargo'),
       cidade,
+      municipio: cidade,
       uf: val('uf'),
       ano,
       planoAssinatura: plano,
-      tipo: campanhaId === REF_ID ? 'referencia_oficial' : 'cliente',
-      status: 'criada',
+      status: 'ativo',
+      limites: {
+        coordenadores: Number(val('limiteCoords') || limitesPadrao.coordenadores || 0),
+        campo: Number(val('limiteCampo') || limitesPadrao.campo || 0)
+      },
       criadaEm: Date.now()
     };
 
@@ -104,7 +94,7 @@
       campo: val('senhaCampo') || '',
       coord: val('senhaCoord') || '',
       candidato: val('senhaCandidato') || '',
-      master: val('senhaMaster') || ''
+      master: val('senhaMaster') || 'master2026'
     };
 
     const historico = {
@@ -129,39 +119,35 @@
     };
 
     const skins = {
-      'developerCampaign.skin': {
+      developerCampaign_skin: {
+        originalKey: 'developerCampaign.skin',
         active: true,
         finalidade: 'Gerar app de campanha, config, seed, branch, preview e PR.'
       },
-      'subscriptionPlan.skin': {
+      subscriptionPlan_skin: {
+        originalKey: 'subscriptionPlan.skin',
         active: true,
         plano,
         modulos: modulosPorPlano(plano)
       },
-      'electoralAnalysis.skin': {
+      electoralAnalysis_skin: {
+        originalKey: 'electoralAnalysis.skin',
         active: automacoes.analiseEleitoral,
         fontes: ['TSE', 'TRE', 'CSV oficial'],
-        estrategiaHistorico:
-          historico.jaFoiCandidato === 'sim'
-            ? 'analisar_historico_do_candidato_e_partido'
-            : 'analisar_partido_coligacao_e_candidatos_similares'
+        estrategiaHistorico: historico.jaFoiCandidato === 'sim' ? 'analisar_historico_do_candidato_e_partido' : 'analisar_partido_coligacao_e_candidatos_similares'
       },
-      'territoryGeocoding.skin': {
+      territoryGeocoding_skin: {
+        originalKey: 'territoryGeocoding.skin',
         active: automacoes.territorio || automacoes.geocoding || automacoes.pins,
-        pipeline: [
-          'coletar_zonas_secoes_locais',
-          'normalizar_enderecos',
-          'geocodificar',
-          'criar_cache_geo',
-          'gerar_pins_eleitorais',
-          'revisao_manual'
-        ]
+        pipeline: ['coletar_zonas_secoes_locais','normalizar_enderecos','geocodificar','criar_cache_geo','gerar_pins_eleitorais','revisao_manual']
       },
-      'fieldOps.skin': {
-        active: ['operacao', 'inteligencia', 'full'].includes(plano),
+      fieldOps_skin: {
+        originalKey: 'fieldOps.skin',
+        active: ['pro', 'elite', 'personalizado'].includes(plano),
         configura: ['estoque', 'rotas', 'crm', 'denuncias', 'evidencias_gps_foto']
       },
-      'legalCompliance.skin': {
+      legalCompliance_skin: {
+        originalKey: 'legalCompliance.skin',
         active: automacoes.compliance
       }
     };
@@ -234,79 +220,50 @@
 
   async function salvarCampanha() {
     try {
-      if (!global.WWMX?.db?.set) {
-        throw new Error('Firebase/WWMX.db não está disponível.');
-      }
+      if (!global.WWMX?.db?.set) throw new Error('Firebase/WWMX.db não está disponível.');
 
       const pacote = gerarPacote();
       const id = pacote.campanhaId;
 
-      if (!pacote.campaign.candidato || !pacote.campaign.nomeUrna) {
-        throw new Error('Preencha candidato e nome de urna.');
-      }
-
-      if (!pacote.senhas.campo || !pacote.senhas.coord || !pacote.senhas.candidato) {
-        throw new Error('Preencha as senhas de Campo, Coordenador e Candidato.');
-      }
+      if (!pacote.campaign.candidato || !pacote.campaign.nomeUrna) throw new Error('Preencha candidato e nome de urna.');
+      if (!pacote.senhas.campo || !pacote.senhas.coord || !pacote.senhas.candidato) throw new Error('Preencha as senhas de Campo, Coordenador e Candidato.');
 
       toast('Criando campanha no Firebase...', 'info');
 
+      const pacoteSeguro = safeObject(pacote);
+
       await WWMX.db.set(`master_campanhas/${id}`, {
-        ...pacote.campaign,
-        pacote,
+        ...safeObject(pacote.campaign),
+        pacote: pacoteSeguro,
         atualizadoEm: Date.now()
       });
 
-      await WWMX.db.set(`campanhas/${id}/config/main`, {
+      await WWMX.db.set(`campanhas/${id}/config/main`, safeObject({
         ...pacote.campaign,
         modulosAtivos: pacote.modules.modulosAtivos,
         skinsAtivas: pacote.modules.skinsAtivas,
         deploy: pacote.deploy,
         atualizadoEm: Date.now()
-      });
+      }));
 
-      await WWMX.db.set(`campanhas/${id}/config/senhas`, pacote.senhas);
-      await WWMX.db.set(`campanhas/${id}/config/historico`, pacote.historico);
-      await WWMX.db.set(`campanhas/${id}/config/automacoes`, pacote.automacoes);
-      await WWMX.db.set(`campanhas/${id}/config/skins`, pacote.skins);
-      await WWMX.db.set(`campanhas/${id}/config/picoclaw`, {
+      await WWMX.db.set(`campanhas/${id}/config/senhas`, safeObject(pacote.senhas));
+      await WWMX.db.set(`campanhas/${id}/config/historico`, safeObject(pacote.historico));
+      await WWMX.db.set(`campanhas/${id}/config/automacoes`, safeObject(pacote.automacoes));
+      await WWMX.db.set(`campanhas/${id}/config/skins`, safeObject(pacote.skins));
+      await WWMX.db.set(`campanhas/${id}/config/picoclaw`, safeObject({
         prompt: pacote.prompt,
         generatedAt: pacote.generatedAt,
         status: 'pacote_gerado'
-      });
+      }));
 
-      await WWMX.db.set(`campanhas/${id}/territorio/status`, {
-        status: 'pendente_importacao_tse',
-        ts: Date.now()
-      });
+      await WWMX.db.set(`campanhas/${id}/territorio/status`, { status: 'pendente_importacao_tse', ts: Date.now() });
+      await WWMX.db.set(`campanhas/${id}/eleitoral/status`, { status: 'pendente_processamento_picoclaw', ts: Date.now() });
+      await WWMX.db.set(`campanhas/${id}/seed/status`, { status: 'estrutura_inicial_criada', paths: ['pins','crm_liderancas','estoque_central','rotas','denuncias','militantes','territorio','eleitoral'], ts: Date.now() });
 
-      await WWMX.db.set(`campanhas/${id}/eleitoral/status`, {
-        status: 'pendente_processamento_picoclaw',
-        ts: Date.now()
-      });
-
-      await WWMX.db.set(`campanhas/${id}/seed/status`, {
-        status: 'estrutura_inicial_criada',
-        paths: [
-          'pins',
-          'crm_liderancas',
-          'estoque_central',
-          'rotas',
-          'denuncias',
-          'militantes',
-          'territorio',
-          'eleitoral'
-        ],
-        ts: Date.now()
-      });
-
-      try {
-        localStorage.setItem('wwmx_campanha', id);
-      } catch (_) {}
+      try { localStorage.setItem('wwmx_campanha', id); } catch (_) {}
 
       const preview = document.getElementById('pacotePreview');
       if (preview) preview.textContent = JSON.stringify(pacote, null, 2);
-
       const promptBox = document.getElementById('promptPreview');
       if (promptBox) promptBox.value = pacote.prompt;
 
@@ -327,24 +284,20 @@
     btn.type = 'button';
     btn.textContent = 'Salvar e criar campanha';
     btn.onclick = salvarCampanha;
-
     actions.insertBefore(btn, actions.firstChild);
 
-    const status = document.createElement('div');
-    status.id = 'picoSaveStatus';
-    status.style.fontSize = '12px';
-    status.style.margin = '8px 0 14px';
-    status.style.color = 'var(--muted)';
-    status.textContent = 'Pipeline PicoClaw pronto para criar campanha real.';
-    actions.parentNode.insertBefore(status, actions.nextSibling);
+    if (!document.getElementById('picoSaveStatus')) {
+      const status = document.createElement('div');
+      status.id = 'picoSaveStatus';
+      status.style.fontSize = '12px';
+      status.style.margin = '8px 0 14px';
+      status.style.color = 'var(--muted)';
+      status.textContent = 'Pipeline PicoClaw pronto para criar campanha real.';
+      actions.parentNode.insertBefore(status, actions.nextSibling);
+    }
   }
 
   global.WWMX = global.WWMX || {};
-  global.WWMX.PicoCampaignSave = {
-    instalar,
-    salvarCampanha,
-    gerarPacote
-  };
-
+  global.WWMX.PicoCampaignSave = { instalar, salvarCampanha, gerarPacote };
   instalar();
 })(window);
