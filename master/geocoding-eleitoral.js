@@ -123,13 +123,22 @@ async function lerLocais(){
 }
 
 async function dbGet(path){
-  if(global.WWMX?.db?.get) return await WWMX.db.get(path) || {};
+  if(global.WWMX?.db?.val){
+    return await WWMX.db.val(path) || {};
+  }
+
+  if(global.WWMX?.db?.get){
+    const snap = await WWMX.db.get(path);
+    return snap && typeof snap.val === 'function' ? (snap.val() || {}) : (snap || {});
+  }
+
   if(global.WWMX?.fs?.getCol){
     const parts=path.split('/').filter(Boolean);
     if(parts[0]==='campanhas' && parts.length>=4){
       return await WWMX.fs.getCol(parts[0],parts[1],parts[2],parts[3]) || [];
     }
   }
+
   throw new Error('Firebase não disponível.');
 }
 
