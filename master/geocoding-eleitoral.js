@@ -94,14 +94,32 @@ async function lerLocais(){
     {tipo:'campanha_legacy',path:`campanhas/${campanhaId}/territorio/locais_votacao`}
   ];
 
-  let primeiro={tipo:caminhos[0].tipo,path:caminhos[0].path,data:{}};
+  const resultados=[];
+
   for(const item of caminhos){
     const data=await dbGet(item.path);
-    const count=contar(data);
-    if(item===caminhos[0]) primeiro={...item,data:data||{}};
-    if(count>0) return {...item,data};
+    resultados.push({
+      ...item,
+      data:data||{},
+      count:contar(data)
+    });
   }
-  return primeiro;
+
+  // Escolhe a fonte com mais registros.
+  // Isso evita parar numa base global antiga com só 2 locais
+  // quando a raiz compartilhada já tem os 78 importados.
+  resultados.sort((a,b)=>b.count-a.count);
+
+  const melhor=resultados[0] || {
+    tipo:caminhos[0].tipo,
+    path:caminhos[0].path,
+    data:{},
+    count:0
+  };
+
+  return melhor.count>0
+    ? melhor
+    : {tipo:caminhos[0].tipo,path:caminhos[0].path,data:{},count:0};
 }
 
 async function dbGet(path){
