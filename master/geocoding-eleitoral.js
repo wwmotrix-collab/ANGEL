@@ -1,11 +1,18 @@
 (function(global){'use strict';
 
 let campanhaId=null;
+let territorio={uf:'RS',municipio:'Viamão',slug:'viamao'};
+let fonteAtual='';
+let fonteTipo='';
 let locais=[];
 let selecionado=null;
 
 function init(camp){
-  campanhaId = camp || localStorage.getItem('wwmx_campanha') || new URLSearchParams(location.search).get('c') || 'demo';
+  const qs=new URLSearchParams(location.search);
+  campanhaId = camp || localStorage.getItem('wwmx_campanha') || qs.get('c') || 'angel-referencia-viamao';
+  territorio.uf=(qs.get('uf')||'RS').toUpperCase();
+  territorio.municipio=qs.get('municipio')||qs.get('cidade')||territorio.municipio||'Viamão';
+  territorio.slug=slug(territorio.municipio);
   render();
   carregar();
 }
@@ -24,6 +31,7 @@ function render(){
         <div class="camp-desc">
           Revise endereços TSE/TRE importados, confirme coordenadas e prepare os PINs eleitorais para o mapa territorial.
         </div>
+        <div id="geoFonte" class="geo-source"></div>
       </div>
 
       <div id="geoStats" class="dash-stats"></div>
@@ -65,33 +73,77 @@ function render(){
 async function carregar(){
   try{
     setStatus('Carregando locais...');
-    const data = await lerLocais();
-    locais = normalizar(data);
+    const result = await lerLocais();
+    locais = normalizar(result.data);
+    fonteAtual = result.path;
+    fonteTipo = result.tipo;
+    atualizarFonte();
     stats();
     listar();
   }catch(e){
     console.error('[geocoding]',e);
     setStatus('Erro ao carregar locais: '+(e.message||e),'error');
+    atualizarFonte(String(e.message||e));
   }
 }
 
 async function lerLocais(){
-  const path=`campanhas/${campanhaId}/territorio/locais_votacao`;
+  const caminhos=[
+    {tipo:'territorio_global',path:`territorios/${territorio.uf}/${territorio.slug}/locais_votacao`},
+    {tipo:'raiz_compatibilidade',path:'locais_votacao'},
+    {tipo:'campanha_legacy',path:`campanhas/${campanhaId}/territorio/locais_votacao`}
+  ];
 
-  if(global.WWMX?.db?.get){
-    return await WWMX.db.get(path) || {};
+  let primeiro={tipo:caminhos[0].tipo,path:caminhos[0].path,data:{}};
+  for(const item of caminhos){
+    const data=await dbGet(item.path);
+    const count=contar(data);
+    if(item===caminhos[0]) primeiro={...item,data:data||{}};
+    if(count>0) return {...item,data};
   }
+  return primeiro;
+}
 
+async function dbGet(path){
+  if(global.WWMX?.db?.get) return await WWMX.db.get(path) || {};
   if(global.WWMX?.fs?.getCol){
-    return await WWMX.fs.getCol('campanhas',campanhaId,'territorio','locais_votacao') || [];
+    const parts=path.split('/').filter(Boolean);
+    if(parts[0]==='campanhas' && parts.length>=4){
+      return await WWMX.fs.getCol(parts[0],parts[1],parts[2],parts[3]) || [];
+    }
   }
-
   throw new Error('Firebase não disponível.');
+}
+
+function contar(data){
+  if(Array.isArray(data))return data.length;
+  if(data && typeof data==='object')return Object.keys(data).length;
+  return 0;
 }
 
 function normalizar(data){
   if(Array.isArray(data)) return data.map((x,i)=>({id:x.id||x.key||String(i),...x}));
   return Object.entries(data||{}).map(([id,v])=>({id,...(v||{})}));
+}
+
+function atualizarFonte(extra){
+  const el=document.getElementById('geoFonte');
+  if(!el)return;
+  const origem=fundoFonte(fonteTipo);
+  el.innerHTML=`
+    <span>Campanha: <strong>${esc(campanhaId)}</strong></span>
+    <span>Território: <strong>${esc(territorio.uf)} / ${esc(territorio.slug)}</strong></span>
+    <span>Fonte: <strong>${esc(origem)}</strong></span>
+    <small>${esc(fonteAtual||extra||'')}</small>
+  `;
+}
+
+function fundoFonte(tipo){
+  return ({
+    territorio_global:'território global',
+    raiz_compatibilidade:'raiz compartilhada',
+    campanha_legacy:'campanha legada'
+  })[tipo]||'território global';
 }
 
 function stats(){
@@ -100,7 +152,7 @@ function stats(){
 
   const total=locais.length;
   const sem=locais.filter(l=>!num(l.lat)||!num(l.lng)).length;
-  const pend=locais.filter(l=>['pendente','automatico','revisao'].includes(statusGeo(l))).length;
+  const pend=locais.filter(l=>['pendente','automatico','revisao','ok'].includes(statusGeo(l))).length;
   const conf=locais.filter(l=>statusGeo(l)==='confirmado').length;
 
   el.innerHTML=`
@@ -119,7 +171,7 @@ function listar(){
   let arr=locais.slice();
 
   if(filtro==='sem_geo') arr=arr.filter(l=>!num(l.lat)||!num(l.lng));
-  if(filtro==='pendente') arr=arr.filter(l=>['pendente','automatico','revisao'].includes(statusGeo(l)));
+  if(filtro==='pendente') arr=arr.filter(l=>['pendente','automatico','revisao','ok'].includes(statusGeo(l)));
   if(filtro==='confirmado') arr=arr.filter(l=>statusGeo(l)==='confirmado');
   if(filtro==='erro') arr=arr.filter(l=>statusGeo(l)==='erro');
 
@@ -131,9 +183,9 @@ function listar(){
   box.innerHTML=arr.map(l=>`
     <button class="geo-item" onclick="geocodingSelecionar('${escAttr(l.id)}')">
       <div>
-        <strong>${esc(pick(l,['nome','local','nome_local','nomeLocal','local_votacao'],'Local sem nome'))}</strong>
-        <small>Zona ${esc(pick(l,['zona','ze'],'—'))} · Seções ${esc(pick(l,['secoes','secao','ns'],'—'))} · ${esc(pick(l,['eleitores','el','qt_eleitores'],0))} eleitores</small>
-        <small>${esc(pick(l,['endereco','address','enderecoCompleto'],'Endereço não informado'))}</small>
+        <strong>${esc(nomeLocal(l))}</strong>
+        <small>Zona ${esc(valor(l,['zona','ze'],'—'))} · Seções ${esc(valor(l,['secoes','secao','ns'],'—'))} · ${esc(valor(l,['eleitores','el','qt_eleitores'],0))} eleitores</small>
+        <small>${esc(enderecoLocal(l))}</small>
       </div>
       <span class="geo-badge ${statusGeo(l)}">${labelStatus(statusGeo(l))}</span>
     </button>
@@ -156,17 +208,17 @@ function detalhe(){
   el.innerHTML=`
     <div class="geo-detail">
       <div class="camp-kicker">${esc(statusGeo(l))}</div>
-      <div class="camp-title small">${esc(pick(l,['nome','local','nome_local','nomeLocal','local_votacao'],'Local de votação'))}</div>
+      <div class="camp-title small">${esc(nomeLocal(l))}</div>
       <div class="camp-desc">
-        Zona ${esc(pick(l,['zona','ze'],'—'))} · Seções ${esc(pick(l,['secoes','secao','ns'],'—'))} · ${esc(pick(l,['eleitores','el','qt_eleitores'],0))} eleitores<br>
-        ${esc(pick(l,['endereco','address','enderecoCompleto'],'Endereço não informado'))}<br>
-        ${esc(pick(l,['bairro','regiao','zona_bairro'],''))}
+        Zona ${esc(valor(l,['zona','ze'],'—'))} · Seções ${esc(valor(l,['secoes','secao','ns'],'—'))} · ${esc(valor(l,['eleitores','el','qt_eleitores'],0))} eleitores<br>
+        ${esc(enderecoLocal(l))}<br>
+        ${esc(valor(l,['bairro','regiao','zona_bairro'],''))}
       </div>
 
       <div class="geo-map-placeholder">
         <div>🗺️</div>
         <strong>Mapa de revisão</strong>
-        <small>PR #10 prepara lat/lng. PR #11 transforma em PIN territorial.</small>
+        <small>Coordenada global do local. Prioridade/meta ficam no overlay da campanha.</small>
       </div>
 
       <div class="grid-form">
@@ -233,7 +285,8 @@ async function marcarErro(){
 }
 
 async function salvarGeo(id,patch){
-  const path=`campanhas/${campanhaId}/territorio/locais_votacao/${id}`;
+  const base=fonteAtual||`territorios/${territorio.uf}/${territorio.slug}/locais_votacao`;
+  const path=`${base}/${id}`;
 
   if(global.WWMX?.db?.update){
     await WWMX.db.update(path,patch);
@@ -244,10 +297,14 @@ async function salvarGeo(id,patch){
     throw new Error('Firebase RTDB indisponível para salvar.');
   }
 
-  const cacheKey=hashEndereco(selecionado?.endereco||selecionado?.address||id);
+  const cacheKey=hashEndereco(enderecoLocal(selecionado)||id);
+  const cachePath=(fonteTipo==='campanha_legacy')
+    ? `campanhas/${campanhaId}/territorio/geo_cache/${cacheKey}`
+    : `territorios/${territorio.uf}/${territorio.slug}/geo_cache/${cacheKey}`;
+
   if(global.WWMX?.db?.set){
-    await WWMX.db.set(`campanhas/${campanhaId}/territorio/geo_cache/${cacheKey}`,{
-      endereco:selecionado?.endereco||selecionado?.address||'',
+    await WWMX.db.set(cachePath,{
+      endereco:enderecoLocal(selecionado),
       localId:id,
       ...patch,
       atualizadoEm:Date.now()
@@ -255,12 +312,17 @@ async function salvarGeo(id,patch){
   }
 }
 
-function pick(obj, keys, fallback=''){
+function nomeLocal(l){return valor(l,['nome','local','nome_local','nomeLocal','local_votacao'],'Local sem nome')}
+function enderecoLocal(l){return valor(l,['endereco','address','enderecoCompleto'],'Endereço não informado')}
+
+function valor(obj, keys, fallback=''){
   for(const k of keys){
     if(obj && obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return obj[k];
   }
   return fallback;
 }
+
+function pick(obj, keys, fallback=''){return valor(obj,keys,fallback)}
 
 function statusGeo(l){
   if(l.geoStatus)return String(l.geoStatus);
@@ -271,7 +333,7 @@ function statusGeo(l){
 }
 
 function labelStatus(s){
-  return ({pendente:'Pendente',automatico:'Revisar',revisao:'Revisar',confirmado:'Confirmado',erro:'Erro'})[s]||s;
+  return ({pendente:'Pendente',automatico:'Revisar',ok:'Revisar',revisao:'Revisar',confirmado:'Confirmado',erro:'Erro'})[s]||s;
 }
 
 function setStatus(text,type){
@@ -288,14 +350,15 @@ function msg(text,type){
   global.WWMX?.UI?.showToast?.(text,type||'success');
 }
 
-function hashEndereco(v){
+function hashEndereco(v){return slug(String(v||'')).slice(0,80)||'sem-endereco'}
+function slug(v){
   return String(v||'')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g,'')
     .replace(/[^a-z0-9]+/g,'-')
     .replace(/^-+|-+$/g,'')
-    .slice(0,80)||'sem-endereco';
+    .slice(0,80)||'sem-id';
 }
 
 function num(v){
@@ -316,6 +379,9 @@ function style(){
   const s=document.createElement('style');
   s.id='geoStyle';
   s.textContent=`
+    .geo-source{display:flex;flex-direction:column;gap:4px;margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,.03);color:var(--muted);font-size:12px;line-height:1.35}
+    .geo-source strong{color:var(--text)}
+    .geo-source small{font-family:ui-monospace,monospace;color:var(--muted);overflow-wrap:anywhere}
     .geo-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
     .geo-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
     .geo-tools{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:12px}
@@ -325,7 +391,7 @@ function style(){
     .geo-item small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
     .geo-badge{font-size:10px;border-radius:999px;padding:5px 8px;height:max-content;background:#1f2937;color:#fff}
     .geo-badge.confirmado{background:rgba(34,197,94,.18);color:#22c55e}
-    .geo-badge.pendente,.geo-badge.automatico,.geo-badge.revisao{background:rgba(245,158,11,.18);color:#f59e0b}
+    .geo-badge.pendente,.geo-badge.automatico,.geo-badge.ok,.geo-badge.revisao{background:rgba(245,158,11,.18);color:#f59e0b}
     .geo-badge.erro{background:rgba(239,68,68,.18);color:#ef4444}
     .geo-map-placeholder{height:220px;border:1px dashed var(--border);border-radius:14px;background:linear-gradient(135deg,rgba(132,255,0,.08),rgba(59,130,246,.08));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;margin:14px 0;color:var(--muted)}
     .geo-map-placeholder div{font-size:36px}
