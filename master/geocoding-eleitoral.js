@@ -15,12 +15,15 @@ function destroy(){}
 function render(){
   const root=document.getElementById('appView');
   if(!root)return;
+
   root.innerHTML=`
     <div class="dash-view geo-view">
       <div class="camp-hero">
         <div class="camp-kicker">PicoClaw · Geocoding</div>
         <div class="camp-title">Geocoding eleitoral</div>
-        <div class="camp-desc">Revise endereços TSE/TRE importados, confirme coordenadas e prepare os PINs eleitorais para o mapa territorial.</div>
+        <div class="camp-desc">
+          Revise endereços TSE/TRE importados, confirme coordenadas e prepare os PINs eleitorais para o mapa territorial.
+        </div>
       </div>
 
       <div id="geoStats" class="dash-stats"></div>
@@ -53,6 +56,7 @@ function render(){
       <div style="height:90px"></div>
     </div>
   `;
+
   style();
   document.getElementById('geoFiltro').onchange=listar;
   document.getElementById('geoRecarregar').onclick=carregar;
@@ -73,12 +77,15 @@ async function carregar(){
 
 async function lerLocais(){
   const path=`campanhas/${campanhaId}/territorio/locais_votacao`;
+
   if(global.WWMX?.db?.get){
     return await WWMX.db.get(path) || {};
   }
+
   if(global.WWMX?.fs?.getCol){
     return await WWMX.fs.getCol('campanhas',campanhaId,'territorio','locais_votacao') || [];
   }
+
   throw new Error('Firebase não disponível.');
 }
 
@@ -90,10 +97,12 @@ function normalizar(data){
 function stats(){
   const el=document.getElementById('geoStats');
   if(!el)return;
+
   const total=locais.length;
   const sem=locais.filter(l=>!num(l.lat)||!num(l.lng)).length;
-  const pend=locais.filter(l=>statusGeo(l)==='pendente'||statusGeo(l)==='automatico').length;
+  const pend=locais.filter(l=>['pendente','automatico','revisao'].includes(statusGeo(l))).length;
   const conf=locais.filter(l=>statusGeo(l)==='confirmado').length;
+
   el.innerHTML=`
     <div class="stat-card total"><div class="stat-num accent">${total}</div><div class="stat-label">Locais</div></div>
     <div class="stat-card ret"><div class="stat-num red">${sem}</div><div class="stat-label">Sem coordenada</div></div>
@@ -105,8 +114,10 @@ function stats(){
 function listar(){
   const box=document.getElementById('geoLista');
   if(!box)return;
+
   const filtro=document.getElementById('geoFiltro')?.value||'todos';
   let arr=locais.slice();
+
   if(filtro==='sem_geo') arr=arr.filter(l=>!num(l.lat)||!num(l.lng));
   if(filtro==='pendente') arr=arr.filter(l=>['pendente','automatico','revisao'].includes(statusGeo(l)));
   if(filtro==='confirmado') arr=arr.filter(l=>statusGeo(l)==='confirmado');
@@ -120,9 +131,9 @@ function listar(){
   box.innerHTML=arr.map(l=>`
     <button class="geo-item" onclick="geocodingSelecionar('${escAttr(l.id)}')">
       <div>
-        <strong>${esc(l.nome||l.local||l.nome_local||'Local sem nome')}</strong>
-        <small>Zona ${esc(l.zona||'—')} · Seções ${esc(l.secoes||l.secao||'—')} · ${esc(l.eleitores||0)} eleitores</small>
-        <small>${esc(l.endereco||l.address||'Endereço não informado')}</small>
+        <strong>${esc(pick(l,['nome','local','nome_local','nomeLocal','local_votacao'],'Local sem nome'))}</strong>
+        <small>Zona ${esc(pick(l,['zona','ze'],'—'))} · Seções ${esc(pick(l,['secoes','secao','ns'],'—'))} · ${esc(pick(l,['eleitores','el','qt_eleitores'],0))} eleitores</small>
+        <small>${esc(pick(l,['endereco','address','enderecoCompleto'],'Endereço não informado'))}</small>
       </div>
       <span class="geo-badge ${statusGeo(l)}">${labelStatus(statusGeo(l))}</span>
     </button>
@@ -137,17 +148,19 @@ function selecionar(id){
 function detalhe(){
   const el=document.getElementById('geoDetalhe');
   if(!el||!selecionado)return;
+
   const l=selecionado;
   const lat=num(l.lat)||'';
   const lng=num(l.lng)||'';
+
   el.innerHTML=`
     <div class="geo-detail">
       <div class="camp-kicker">${esc(statusGeo(l))}</div>
-      <div class="camp-title small">${esc(l.nome||l.local||l.nome_local||'Local de votação')}</div>
+      <div class="camp-title small">${esc(pick(l,['nome','local','nome_local','nomeLocal','local_votacao'],'Local de votação'))}</div>
       <div class="camp-desc">
-        Zona ${esc(l.zona||'—')} · Seções ${esc(l.secoes||l.secao||'—')} · ${esc(l.eleitores||0)} eleitores<br>
-        ${esc(l.endereco||l.address||'Endereço não informado')}<br>
-        ${esc(l.bairro||l.regiao||'')}
+        Zona ${esc(pick(l,['zona','ze'],'—'))} · Seções ${esc(pick(l,['secoes','secao','ns'],'—'))} · ${esc(pick(l,['eleitores','el','qt_eleitores'],0))} eleitores<br>
+        ${esc(pick(l,['endereco','address','enderecoCompleto'],'Endereço não informado'))}<br>
+        ${esc(pick(l,['bairro','regiao','zona_bairro'],''))}
       </div>
 
       <div class="geo-map-placeholder">
@@ -180,20 +193,25 @@ function detalhe(){
 
 async function confirmar(){
   if(!selecionado)return;
+
   const lat=Number(document.getElementById('geoLat').value);
   const lng=Number(document.getElementById('geoLng').value);
+
   if(!Number.isFinite(lat)||!Number.isFinite(lng)){
     msg('Informe latitude e longitude válidas.','error');
     return;
   }
+
   await salvarGeo(selecionado.id,{
     lat,lng,
     geoStatus:'confirmado',
+    geocodingStatus:'confirmado',
     geoSource:document.getElementById('geoSource').value||'manual',
     geoScore:Number(document.getElementById('geoScore').value||1),
     revisadoPor:'master',
     revisadoEm:Date.now()
   });
+
   msg('✅ Coordenada confirmada.','success');
   await carregar();
   selecionar(selecionado.id);
@@ -201,18 +219,22 @@ async function confirmar(){
 
 async function marcarErro(){
   if(!selecionado)return;
+
   await salvarGeo(selecionado.id,{
     geoStatus:'erro',
+    geocodingStatus:'erro',
     geoSource:'manual',
     revisadoPor:'master',
     revisadoEm:Date.now()
   });
+
   msg('⚠️ Local marcado com erro.','error');
   await carregar();
 }
 
 async function salvarGeo(id,patch){
   const path=`campanhas/${campanhaId}/territorio/locais_votacao/${id}`;
+
   if(global.WWMX?.db?.update){
     await WWMX.db.update(path,patch);
   }else if(global.WWMX?.db?.set){
@@ -233,8 +255,17 @@ async function salvarGeo(id,patch){
   }
 }
 
+function pick(obj, keys, fallback=''){
+  for(const k of keys){
+    if(obj && obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return obj[k];
+  }
+  return fallback;
+}
+
 function statusGeo(l){
   if(l.geoStatus)return String(l.geoStatus);
+  if(l.geocodingStatus==='ok')return 'automatico';
+  if(l.geocodingStatus)return String(l.geocodingStatus);
   if(num(l.lat)&&num(l.lng))return 'automatico';
   return 'pendente';
 }
@@ -250,17 +281,35 @@ function setStatus(text,type){
 
 function msg(text,type){
   const el=document.getElementById('geoMsg');
-  if(el){el.textContent=text;el.style.color=type==='error'?'var(--red)':'var(--angel-lime,var(--accent))';}
+  if(el){
+    el.textContent=text;
+    el.style.color=type==='error'?'var(--red)':'var(--angel-lime,var(--accent))';
+  }
   global.WWMX?.UI?.showToast?.(text,type||'success');
 }
 
 function hashEndereco(v){
-  return String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)||'sem-endereco';
+  return String(v||'')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/^-+|-+$/g,'')
+    .slice(0,80)||'sem-endereco';
 }
 
-function num(v){const n=Number(v);return Number.isFinite(n)?n:0}
-function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
-function escAttr(v){return esc(v).replace(/`/g,'')}
+function num(v){
+  const n=Number(v);
+  return Number.isFinite(n)?n:0;
+}
+
+function esc(v){
+  return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+}
+
+function escAttr(v){
+  return esc(v).replace(/`/g,'');
+}
 
 function style(){
   if(document.getElementById('geoStyle'))return;
