@@ -40,6 +40,8 @@
     admindash:'👑 Painel do Candidato', adminmapa:'🗺️  Mapa Consolidado', adminagentes:'⭐ Agentes/Lideranças',
     adminequipe:'⚔️  Equipe de Campo', logs:'📋 Logs',
     'master-gerador':'🧠 Gerador PicoClaw',
+    'master-geocoding':'🧭 Geocoding Eleitoral',
+    'master-mapa-eleitoral':'🗺️ Mapa Eleitoral',
     'master-campanhas':'🏗️  Campanhas','master-planos':'💰 Planos',
     'master-banco':'🗄️  Banco','master-clientes':'🤝 Clientes',
   };
