@@ -41,6 +41,7 @@
     adminequipe:'⚔️  Equipe de Campo', logs:'📋 Logs',
     'master-gerador':'🧠 Gerador PicoClaw',
     'master-geocoding':'🧭 Geocoding Eleitoral',
+    'master-mapa-eleitoral':'🗺️ Mapa Eleitoral',
     'master-campanhas':'🏗️  Campanhas','master-planos':'💰 Planos',
     'master-banco':'🗄️  Banco','master-clientes':'🤝 Clientes',
   };
@@ -53,8 +54,42 @@
     { id:'rotas', label:'Planejamento de Rotas', icon:'🚗' },
     { id:'estreleiro', label:'Estreleiro', icon:'🌟' },
     { id:'pre-campanha', label:'Pré-Campanha', icon:'🌱' },
+    { id:'eleitoral', label:'Eleitoral Firebase', icon:'🗳️' },
     { id:'inteligencia-eleitoral', label:'Inteligência Eleitoral', icon:'🗳️' },
+    { id:'fontes-reais', label:'Fontes reais TSE/TRE/Maps', icon:'🌐' },
   ];
+
+  const FONTES_REAIS = {
+    tse: {
+      id: 'tse',
+      label: 'Tribunal Superior Eleitoral',
+      tipo: 'dados_abertos_oficiais',
+      prioridade: 1,
+      entradas: ['locais_votacao', 'eleitorado', 'resultados', 'candidaturas', 'partidos'],
+      modo: 'download_importacao_normalizacao',
+      observacao: 'Fonte primária. O PicoClaw deve preferir arquivos oficiais baixados/importados, não raspagem frágil.'
+    },
+    tre: {
+      id: 'tre',
+      label: 'Tribunais Regionais Eleitorais',
+      tipo: 'fonte_complementar_estadual',
+      prioridade: 2,
+      entradas: ['enderecos_atualizados', 'noticias_logisticas', 'locais_publicados', 'zonas_eleitorais'],
+      modo: 'manual_ou_conector_por_uf',
+      observacao: 'Complementar ao TSE. Cada TRE pode publicar em estrutura própria.'
+    },
+    maps: {
+      id: 'maps',
+      label: 'Google Maps / Mapbox / Nominatim',
+      tipo: 'geocoding',
+      prioridade: 3,
+      entradas: ['endereco_local_votacao', 'municipio', 'uf'],
+      saidas: ['lat', 'lng', 'geoConfidence', 'provider', 'placeId'],
+      modo: 'provider_configurado_por_secret',
+      secretKeys: ['GEOCODING_PROVIDER', 'GOOGLE_MAPS_API_KEY', 'MAPBOX_TOKEN'],
+      observacao: 'Chaves ficam fora do repositório. Nominatim/OpenStreetMap fica como fallback de baixo volume e revisão manual.'
+    }
+  };
 
   const GUILDA_RANKS = [
     { rank:'F', xpMin:0,    titulo:'Viajante',   icone:'🧳', cor:'#7d8590' },
@@ -81,12 +116,13 @@
   };
 
   global.WWMX = global.WWMX || {};
-  global.WWMX.Config = { TIPO_MATERIAL, TIPO_EVENTO, TIPO_CONFIG, NIVEL, NIVEL_RANK, NAV_LABELS, MODULOS_DISPONIVEIS, GUILDA_RANKS, DEFAULT_CONFIG, getGuildaRank };
+  global.WWMX.Config = { TIPO_MATERIAL, TIPO_EVENTO, TIPO_CONFIG, NIVEL, NIVEL_RANK, NAV_LABELS, MODULOS_DISPONIVEIS, FONTES_REAIS, GUILDA_RANKS, DEFAULT_CONFIG, getGuildaRank };
   global.TIPO_MATERIAL = TIPO_MATERIAL;
   global.TIPO_EVENTO   = TIPO_EVENTO;
   global.TIPO_CONFIG   = TIPO_CONFIG;
   global.NIVEL         = NIVEL;
   global.NIVEL_RANK    = NIVEL_RANK;
+  global.FONTES_REAIS  = FONTES_REAIS;
   global.GUILDA_RANKS  = GUILDA_RANKS;
   global.getGuildaRank = getGuildaRank;
 }(window));
