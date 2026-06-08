@@ -35,7 +35,7 @@
     central:'✨ Visão Geral',
     mapa:'🗺️  Mapa', meucampo:'📍 Meu Campo', percursos:'🚗 Percursos',
     meuinventario:'📦 Meu Inventário', minhasrotas:'🎯 Minhas Rotas',
-    dash:'📊 Dashboard', eleitoral:'🗳️  Eleitoral', crm:'👥 CRM Lideranças',
+    dash:'📊 Dashboard', eleitoral:'🗳️  Eleitoral', operacao:'🧩 Operação Territorial', crm:'👥 CRM Lideranças',
     militantes:'⚔️  Gestão de Equipe', estoque:'📦 Estoque Central', rotas:'🚗 Planejamento de Rotas', denuncias:'🚨 Denúncias',
     admindash:'👑 Painel do Candidato', adminmapa:'🗺️  Mapa Consolidado', adminagentes:'⭐ Agentes/Lideranças',
     adminequipe:'⚔️  Equipe de Campo', logs:'📋 Logs',
