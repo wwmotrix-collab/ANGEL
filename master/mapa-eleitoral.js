@@ -54,8 +54,8 @@ function render(){
           <select id="mapaZona"><option value="">Todas as zonas</option></select>
           <select id="mapaStatus">
             <option value="">Todos</option>
-            <option value="com_geo">Com coordenada</option>
-            <option value="sem_geo">Sem coordenada</option>
+            <option value="com_geo">Com coordenada válida</option>
+            <option value="sem_geo">Sem coordenada válida</option>
             <option value="com_eleitores">Com eleitores</option>
             <option value="sem_eleitores">Eleitores pendentes</option>
           </select>
@@ -138,8 +138,9 @@ function normalizar(data){
 }
 
 function normItem(v,id){
-  const lat=Number(pick(v,['lat','latitude'],''));
-  const lng=Number(pick(v,['lng','lon','longitude'],''));
+  const rawLat=pick(v,['lat','latitude'],'');
+  const rawLng=pick(v,['lng','lon','longitude'],'');
+  const coords=normalizarCoordenadas(rawLat,rawLng);
   const eleitoresRaw=pick(v,['eleitores','el','qt_eleitores'],'');
   const eleitores=Number(eleitoresRaw);
   const votosCand=num(pick(v,['votos_candidato','votosCandidato','votos_do_candidato','votos_guto','votosGuto'],0));
@@ -157,8 +158,11 @@ function normItem(v,id){
     votosTotal:num(pick(v,['votos_total','votosTotal','total_votos'],0)),
     votosCandidato:votosCand,
     pctCandidato:pctCand,
-    lat:Number.isFinite(lat)?lat:null,
-    lng:Number.isFinite(lng)?lng:null,
+    lat:coords.lat,
+    lng:coords.lng,
+    coordStatus:coords.status,
+    originalLat:rawLat,
+    originalLng:rawLng,
     geoStatus:pick(v,['geoStatus','geocodingStatus'],'')
   };
 }
@@ -198,14 +202,16 @@ function stats(){
   const semGeo=total-comGeo;
   const eleitoresConhecidos=locais.reduce((acc,l)=>acc+(temEleitores(l)?l.eleitores:0),0);
   const pendEleitores=locais.filter(l=>!temEleitores(l)).length;
+  const corrigidas=locais.filter(l=>String(l.coordStatus||'').startsWith('corrigido')).length;
   const el=document.getElementById('mapaStats');
   if(!el) return;
   el.innerHTML=`
     <div class="stat-card total"><div class="stat-num accent">${total}</div><div class="stat-label">Locais</div></div>
-    <div class="stat-card inst"><div class="stat-num green">${comGeo}</div><div class="stat-label">Com coordenada</div></div>
-    <div class="stat-card ret"><div class="stat-num red">${semGeo}</div><div class="stat-label">Sem coordenada</div></div>
+    <div class="stat-card inst"><div class="stat-num green">${comGeo}</div><div class="stat-label">Com coordenada válida</div></div>
+    <div class="stat-card ret"><div class="stat-num red">${semGeo}</div><div class="stat-label">Coordenada fora do território</div></div>
     <div class="stat-card total"><div class="stat-num yellow">${fmt(eleitoresConhecidos)}</div><div class="stat-label">Eleitores conhecidos</div></div>
     <div class="stat-card ret"><div class="stat-num red">${pendEleitores}</div><div class="stat-label">Eleitores pendentes</div></div>
+    <div class="stat-card inst"><div class="stat-num green">${corrigidas}</div><div class="stat-label">Coordenadas autocorrigidas</div></div>
   `;
 }
 
@@ -232,11 +238,11 @@ function renderMapa(){
   const semGeo=filtrados.filter(l=>!temGeo(l));
   el.innerHTML=`
     <div class="mapa-real-head">
-      <div><strong>${esc(territorio.municipio)} / ${esc(territorio.uf)}</strong><small>${comGeo.length} PINs com coordenada · ${semGeo.length} pendentes</small></div>
+      <div><strong>${esc(territorio.municipio)} / ${esc(territorio.uf)}</strong><small>${comGeo.length} PINs válidos · ${semGeo.length} fora do território/pendentes</small></div>
       <button class="btn btn-ghost btn-sm" id="mapaCentralizar">Centralizar</button>
     </div>
     <div id="mapaLeaflet" class="mapa-leaflet"></div>
-    ${semGeo.length?`<div class="mapa-warn">⚠️ ${semGeo.length} locais ainda não têm coordenadas e ficam fora do mapa.</div>`:''}
+    ${semGeo.length?`<div class="mapa-warn">⚠️ ${semGeo.length} locais têm coordenada ausente ou fora do território e ficam fora do mapa até revisão.</div>`:''}
   `;
   document.getElementById('mapaCentralizar').onclick=()=>centralizarMapa();
 
@@ -277,7 +283,7 @@ function desenharMapaReal(){
   if(!el||!global.L) return;
   const pins=filtrados.filter(temGeo);
   if(!pins.length){
-    el.innerHTML='<div class="empty"><div class="empty-icon">📍</div>Nenhum local com coordenada para plotar.</div>';
+    el.innerHTML='<div class="empty"><div class="empty-icon">📍</div>Nenhum local com coordenada válida para plotar neste território.</div>';
     return;
   }
 
@@ -343,7 +349,7 @@ function fallbackMapaVisual(){
   const semGeo=filtrados.filter(l=>!temGeo(l));
   el.innerHTML=`
     <div class="mapa-mini">
-      <div class="mapa-mini-head"><strong>${esc(territorio.municipio)} / ${esc(territorio.uf)}</strong><small>${comGeo.length} PINs com coordenada · ${semGeo.length} pendentes</small></div>
+      <div class="mapa-mini-head"><strong>${esc(territorio.municipio)} / ${esc(territorio.uf)}</strong><small>${comGeo.length} PINs válidos · ${semGeo.length} pendentes</small></div>
       <div class="pin-cloud">${filtrados.slice(0,160).map(pinHtml).join('')}</div>
       <div class="mapa-warn">Mapa real indisponível. Exibindo fallback visual.</div>
     </div>
@@ -366,7 +372,7 @@ function renderLista(){
   el.innerHTML=filtrados.map(l=>`
     <button class="mapa-item" onclick="mapaEleitoralSelecionar('${escAttr(l.id)}')">
       <div><strong>${esc(l.nome)}</strong><small>Zona ${esc(l.zona)} · Seções ${esc(l.secoes)} · ${eleitoresLabel(l)}</small><small>${esc(l.endereco)}</small></div>
-      <span class="mapa-badge ${temGeo(l)?'ok':'warn'}">${temGeo(l)?'PIN':'Sem geo'}</span>
+      <span class="mapa-badge ${temGeo(l)?'ok':'warn'}">${temGeo(l)?'PIN':'Revisar geo'}</span>
     </button>
   `).join('');
 }
@@ -382,7 +388,7 @@ function detalhe(){
   const l=selecionado;
   el.innerHTML=`
     <div class="mapa-detail">
-      <div class="camp-kicker">${temGeo(l)?'PIN confirmado':'Geocoding pendente'}</div>
+      <div class="camp-kicker">${temGeo(l)?'PIN confirmado':'Geocoding pendente ou fora do território'}</div>
       <div class="camp-title small">${esc(l.nome)}</div>
       <div class="camp-desc">${esc(l.endereco)}<br>${esc(l.bairro||'Bairro não informado')}</div>
       <div class="mapa-detail-grid">
@@ -393,7 +399,8 @@ function detalhe(){
         <div><strong>${fmt(l.votosCandidato)}</strong><span>Votos candidato</span></div>
         <div><strong>${l.pctCandidato?l.pctCandidato+'%':'—'}</strong><span>% candidato</span></div>
       </div>
-      <div class="mapa-coords"><code>lat: ${l.lat??'pendente'}</code><code>lng: ${l.lng??'pendente'}</code></div>
+      <div class="mapa-coords"><code>lat: ${l.lat??'pendente'}</code><code>lng: ${l.lng??'pendente'}</code><code>status: ${esc(l.coordStatus||'—')}</code></div>
+      <div class="camp-desc">Coordenadas originais: ${esc(l.originalLat??'—')} / ${esc(l.originalLng??'—')}</div>
       <div class="camp-desc">Próxima etapa: #12 poderá marcar prioridade, meta, rota e responsável por este local.</div>
     </div>
   `;
@@ -406,15 +413,40 @@ function setLoading(msg){
   if(canvas) canvas.innerHTML=`<div class="empty"><div class="empty-icon">🗺️</div>${esc(msg)}</div>`;
 }
 
-function temGeo(l){return Number.isFinite(l.lat)&&Number.isFinite(l.lng);}
+function temGeo(l){return Number.isFinite(l.lat)&&Number.isFinite(l.lng)&&dentroDoTerritorio(l.lat,l.lng);}
 function temEleitores(l){return Number.isFinite(l.eleitores)&&l.eleitores>0;}
 function eleitoresLabel(l){return temEleitores(l)?`${fmt(l.eleitores)} eleitores`:'eleitores pendentes';}
 function pinSize(l){if(!temEleitores(l))return 1;if(l.eleitores>=9000)return 5;if(l.eleitores>=6000)return 4;if(l.eleitores>=3000)return 3;if(l.eleitores>=1000)return 2;return 1;}
 function pinLabel(l){return temEleitores(l)?Math.round(l.eleitores/1000)+'k':'?';}
 function pick(obj,keys,fallback=''){for(const k of keys){if(obj&&obj[k]!==undefined&&obj[k]!==null&&obj[k]!=='')return obj[k];}return fallback;}
 function contar(data){if(!data)return 0;if(Array.isArray(data))return data.length;if(typeof data==='object')return Object.keys(data).length;return 0;}
-function num(v){const n=Number(v);return Number.isFinite(n)?n:0;}
+function num(v){const n=Number(String(v??'').replace(',','.'));return Number.isFinite(n)?n:0;}
 function fmt(v){const n=Number(v||0);return Number.isFinite(n)?n.toLocaleString('pt-BR'):'0';}
+function parseCoord(v){const n=Number(String(v??'').trim().replace(',','.'));return Number.isFinite(n)?n:NaN;}
+function boundsTerritorio(){
+  if(territorio.uf==='RS'&&territorio.slug==='viamao') return {minLat:-30.35,maxLat:-29.75,minLng:-51.35,maxLng:-50.65};
+  if(territorio.uf==='RS') return {minLat:-34.1,maxLat:-27.0,minLng:-58.9,maxLng:-49.0};
+  return {minLat:-34.5,maxLat:5.5,minLng:-74.5,maxLng:-32.0};
+}
+function dentroDoTerritorio(lat,lng){
+  const b=boundsTerritorio();
+  return Number.isFinite(lat)&&Number.isFinite(lng)&&lat>=b.minLat&&lat<=b.maxLat&&lng>=b.minLng&&lng<=b.maxLng;
+}
+function normalizarCoordenadas(rawLat,rawLng){
+  const lat=parseCoord(rawLat);
+  const lng=parseCoord(rawLng);
+  if(!Number.isFinite(lat)||!Number.isFinite(lng)) return {lat:null,lng:null,status:'sem_coordenada'};
+
+  const candidatos=[
+    {lat,lng,status:'ok'},
+    {lat:lng,lng:lat,status:'corrigido_lat_lng_invertidos'},
+    {lat:-Math.abs(lat),lng:-Math.abs(lng),status:'corrigido_sinal'},
+    {lat:-Math.abs(lng),lng:-Math.abs(lat),status:'corrigido_invertido_sinal'}
+  ];
+  const valido=candidatos.find(c=>dentroDoTerritorio(c.lat,c.lng));
+  if(valido) return valido;
+  return {lat:null,lng:null,status:'fora_do_territorio'};
+}
 function slug(value){return String(value||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'territorio';}
 function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 function escAttr(v){return esc(v).replace(/`/g,'');}
