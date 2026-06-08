@@ -1,166 +1,54 @@
 /**
  * core/auth.js
- * WWMX Campaign — Autenticação, sessão e controle de acesso
+ * ANGEL — autenticação, sessão e controle de acesso.
  *
- * ┌─────────────────────────────────────────────────────────┐
- * │  QUATRO PERFIS, DOIS MECANISMOS DE AUTH                 │
- * │                                                         │
- * │  Firebase Auth (email/password)                         │
- * │    Todos os perfis usam Firebase Auth como base.        │
- * │    O nível de acesso é armazenado no RTDB junto ao      │
- * │    registro do militante, e verificado server-side       │
- * │    pelas Security Rules do Firebase.                    │
- * │                                                         │
- * │  Senhas de campanha (camada extra para campo/coord)      │
- * │    Militantes de campo e coordenadores usam uma senha    │
- * │    de campanha compartilhada (definida pelo Master)      │
- * │    além das credenciais Firebase. Isso permite que o    │
- * │    Candidato e o Master tenham controle total sobre      │
- * │    quem pode acessar a campanha específica.             │
- * │                                                         │
- * │  Perfis e permissões                                    │
- * │    master      → gerencia campanhas, planos, banco       │
- * │    candidato   → visão total, logs, define coordenadores │
- * │    coordenador → equipe, estoque, rotas, CRM             │
- * │    campo       → mapa, missões, inventário, percurso     │
- * └─────────────────────────────────────────────────────────┘
- *
- * Expõe:
- *   window._session   → { uid, nome, email, nivel, campanhaId, ... }
- *   window.Auth.*     → API pública do módulo
- *
- * Depende de:
- *   core/firebase.js  → window.WWMX.db, window.WWMX.fs
+ * Correção 2026-06-08:
+ * - fallback demo só funciona em modo desenvolvimento.
+ * - produção exige senhas configuradas em campanhas/{id}/config/main.
  */
-
-(function (global) {
+(function(global){
   'use strict';
 
-  // ─────────────────────────────────────────────────────────
-  // CONSTANTES DE NÍVEL
-  // ─────────────────────────────────────────────────────────
-  const NIVEL = {
-    MASTER:      'master',
-    CANDIDATO:   'candidato',
-    COORDENADOR: 'coord',
-    CAMPO:       'campo',
-  };
+  const NIVEL = { MASTER:'master', CANDIDATO:'candidato', COORDENADOR:'coord', CAMPO:'campo' };
+  const NIVEL_RANK = { campo:1, coord:2, candidato:3, master:4 };
+  const SESSION_KEY = 'wwmx_session';
 
-  // Hierarquia numérica para comparação (maior = mais acesso)
-  const NIVEL_RANK = {
-    campo:      1,
-    coord:      2,
-    candidato:  3,
-    master:     4,
-  };
-
-  // Navegação disponível por perfil
-  const NAV_POR_NIVEL = {
-    campo: [
-      { value: 'mapa',         label: '🗺️  Mapa'            },
-      { value: 'meucampo',     label: '📍 Meu Campo'        },
-      { value: 'percursos',    label: '🚗 Percursos'        },
-      { value: 'meuinventario',label: '📦 Meu Inventário'   },
-      { value: 'minhasrotas',  label: '🎯 Minhas Rotas'     },
-    ],
-    coord: [
-      { value: 'mapa',         label: '🗺️  Mapa'            },
-      { value: 'dash',         label: '📊 Dashboard'        },
-      { value: 'eleitoral',    label: '🗳️  Eleitoral'        },
-      { value: 'crm',          label: '👥 CRM Lideranças'   },
-      { value: 'militantes',   label: '⚔️  Militantes'       },
-      { value: 'estoque',      label: '📦 Estoque Central'  },
-      { value: 'rotas',        label: '🚗 Rotas'            },
-    ],
-    candidato: [
-      { value: 'admindash',    label: '👑 Painel Candidato' },
-      { value: 'adminmapa',    label: '🗺️  Mapa Consolidado' },
-      { value: 'adminagentes', label: '⭐ Agentes'          },
-      { value: 'adminequipe',  label: '⚔️  Equipe'           },
-      { value: 'eleitoral',    label: '🗳️  Eleitoral'        },
-      { value: 'dash',         label: '📊 Dashboard Op.'    },
-      { value: 'logs',         label: '📋 Logs'             },
-    ],
-    master: [
-      { value: 'master-campanhas', label: '🏗️  Campanhas'     },
-      { value: 'master-planos',    label: '💰 Planos'         },
-      { value: 'master-banco',     label: '🗄️  Banco Global'   },
-      { value: 'master-clientes',  label: '🤝 Clientes'       },
-    ],
-  };
-
-  // ─────────────────────────────────────────────────────────
-  // ESTADO DA SESSÃO
-  // ─────────────────────────────────────────────────────────
-  let _session = null; // objeto de sessão ativo
-
-  const SESSION_KEY = 'wwmx_session'; // chave no sessionStorage
-
-  // ─────────────────────────────────────────────────────────
-  // INICIALIZAÇÃO
-  // Chamado por core/firebase.js após wwmx:firebase-ready
-  // ─────────────────────────────────────────────────────────
-  function init() {
-    _montarTelaLogin();
-    _tentarRestaurarSessao();
-    _observarAuthFirebase();
-  }
-
-  // ─────────────────────────────────────────────────────────
-  // MONTAGEM DA TELA DE LOGIN
-  // Usa dados de identidade da campanha vindos do Firestore.
-  // Em demo: fallback para valores hardcoded do HTML original.
-  // ─────────────────────────────────────────────────────────
-  function _montarTelaLogin() {
-    const screen = document.getElementById('loginScreen');
-    if (!screen) return;
-
-    // Tentar carregar config da campanha para personalizar o logo
-    WWMX.onReady(async () => {
-      try {
-        // URL param ?c=ID permite abrir campanha específica
-        const urlParams   = new URLSearchParams(global.location.search);
-        const campanhaUrl = urlParams.get('c');
-        if (campanhaUrl) {
-          const config = await WWMX.carregarConfigCampanha(campanhaUrl);
-          if (config) _aplicarIdentidadeVisual(config);
-        }
-      } catch (_) { /* usa fallback visual do HTML */ }
-    });
-
-    // Bind dos botões de nível
-    _bindBotoesNivel();
-
-    // Bind do botão entrar
-    const btnEntrar = document.getElementById('btnEntrar');
-    if (btnEntrar) {
-      btnEntrar.addEventListener('click', _tentarLogin);
-    }
-
-    // Enter no campo senha
-    const inputSenha = document.getElementById('loginSenha');
-    if (inputSenha) {
-      inputSenha.addEventListener('keydown', e => {
-        if (e.key === 'Enter') _tentarLogin();
-      });
-    }
-
-    // Easter egg: 3 cliques no logo revela botão Candidato
-    const logo = document.getElementById('loginLogoClick');
-    if (logo) logo.addEventListener('click', _revelarBotaoCandidato);
-  }
-
-  // ─────────────────────────────────────────────────────────
-  // SELEÇÃO DE NÍVEL NA TELA DE LOGIN
-  // ─────────────────────────────────────────────────────────
+  let _session = null;
   let _nivelSelecionado = NIVEL.CAMPO;
   let _adminClicks = 0;
 
-  function _bindBotoesNivel() {
+  const SENHAS_DEV = {
+    campo: 'demo2026',
+    coord: 'demo2026',
+    candidato: 'admin2026',
+    master: 'master2026',
+  };
+
+  function init(){
+    bindLogin();
+    tentarRestaurarSessao();
+    observarAuthFirebase();
+  }
+
+  function isDevMode(){
+    const host = global.location.hostname;
+    const params = new URLSearchParams(global.location.search);
+    let flag = false;
+    try { flag = localStorage.getItem('wwmx_dev_mode') === '1'; } catch(_) {}
+    return params.get('dev') === '1' ||
+      flag ||
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '' ||
+      global.location.protocol === 'file:';
+  }
+
+  function bindLogin(){
     const btns = {
-      campo:     document.getElementById('nb-campo'),
-      coord:     document.getElementById('nb-coord'),
-      candidato: document.getElementById('nb-admin'),   // ID legado do HTML
+      campo: document.getElementById('nb-campo'),
+      coord: document.getElementById('nb-coord'),
+      candidato: document.getElementById('nb-admin'),
+      master: document.getElementById('nb-master'),
     };
 
     Object.entries(btns).forEach(([nivel, btn]) => {
@@ -171,361 +59,223 @@
         btn.classList.add('active');
       });
     });
-  }
 
-  function _revelarBotaoCandidato() {
-    _adminClicks++;
-    if (_adminClicks >= 3) {
-      const btn = document.getElementById('nb-admin');
-      if (btn && btn.style.display === 'none') {
-        btn.style.display = 'flex';
-        _mostrarErroLogin('Acesso de candidato liberado', 'info');
+    const logo = document.getElementById('loginLogoClick');
+    if (logo) logo.addEventListener('click', () => {
+      _adminClicks++;
+      if (_adminClicks >= 3) {
+        ['nb-admin','nb-master'].forEach(id => {
+          const b = document.getElementById(id);
+          if (b) b.style.display = 'flex';
+        });
+        mostrarErroLogin('Acessos avançados liberados', 'info');
       }
-    }
+    });
+
+    document.getElementById('btnEntrar')?.addEventListener('click', tentarLogin);
+    document.getElementById('loginSenha')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') tentarLogin();
+    });
   }
 
-  // ─────────────────────────────────────────────────────────
-  // FLUXO DE LOGIN
-  // ─────────────────────────────────────────────────────────
-  async function _tentarLogin() {
-    const nome  = (document.getElementById('loginNome')?.value  || '').trim();
-    const senha = (document.getElementById('loginSenha')?.value || '');
-    const nivel = _nivelSelecionado;
+  async function tentarLogin(){
+    const nome = (document.getElementById('loginNome')?.value || '').trim();
+    const senha = document.getElementById('loginSenha')?.value || '';
+    const nivel = _nivelSelecionado || NIVEL.CAMPO;
 
-    _limparErroLogin();
-    _setBtnEntrarLoading(true);
+    limparErroLogin();
+    setBtnLoading(true);
 
     try {
-      // 1. Validações locais
-      if (!nome)  { _mostrarErroLogin('Digite seu nome.'); return; }
-      if (!senha) { _mostrarErroLogin('Digite a senha.');  return; }
+      if (!nome) { mostrarErroLogin('Digite seu nome.'); return; }
+      if (!senha) { mostrarErroLogin('Digite a senha.'); return; }
 
-      // 2. Buscar configuração da campanha ativa
-      const urlParams  = new URLSearchParams(global.location.search);
-      const campanhaId = urlParams.get('c') || _obterCampanhaIdFallback();
+      const campanhaId = obterCampanhaId();
+      const senhaOk = await verificarSenhaCampanha(campanhaId, nivel, senha);
+      if (!senhaOk) {
+        mostrarErroLogin(isDevMode() ? 'Senha incorreta.' : 'Senha incorreta ou campanha sem senha configurada.');
+        return;
+      }
 
-      // 3. Verificar senha de campanha no Firebase
-      const senhaOk = await _verificarSenhaCampanha(campanhaId, nivel, senha);
-      if (!senhaOk) { _mostrarErroLogin('Senha incorreta.'); return; }
+      const email = nomeParaEmail(nome, nivel, campanhaId);
+      const fbUser = await autenticarOuCriarFirebase(email, senha);
 
-      // 4. Autenticar no Firebase Auth (email sintético a partir do nome)
-      const email   = _nomeParaEmail(nome, nivel, campanhaId);
-      const fbUser  = await _autenticarOuCriarFirebase(email, senha, nivel);
-
-      // 5. Montar sessão
       const session = {
-        uid:        fbUser.uid,
+        uid: fbUser.uid,
         nome,
         email,
         nivel,
         campanhaId,
-        loginTs:    Date.now(),
+        loginTs: Date.now(),
       };
 
-      // 6. Verificar se este uid já tem um nível no Firebase
-      // Se sim, garantir que não está fazendo downgrade de acesso
-      const nivelSalvo = await _obterNivelSalvo(campanhaId, fbUser.uid);
-      if (nivelSalvo && NIVEL_RANK[nivelSalvo] > NIVEL_RANK[nivel]) {
-        // Usuário tem acesso maior no banco — elevar silenciosamente
-        session.nivel = nivelSalvo;
-      }
+      const nivelSalvo = await obterNivelSalvo(campanhaId, fbUser.uid);
+      if (nivelSalvo && NIVEL_RANK[nivelSalvo] > NIVEL_RANK[session.nivel]) session.nivel = nivelSalvo;
 
-      // 7. Ativar sessão
-      _ativarSessao(session);
-
-    } catch (err) {
-      console.error('[auth] _tentarLogin:', err);
-      _mostrarErroLogin('Erro ao entrar. Tente novamente.');
+      await ativarSessao(session);
+    } catch(e) {
+      console.error('[auth] tentarLogin:', e);
+      mostrarErroLogin(e.message || 'Erro ao entrar. Tente novamente.');
     } finally {
-      _setBtnEntrarLoading(false);
+      setBtnLoading(false);
     }
   }
 
-  // ─────────────────────────────────────────────────────────
-  // VERIFICAÇÃO DE SENHA DE CAMPANHA
-  // A senha fica em Firestore: campanhas/{id}/config/senhas
-  // Em demo/desenvolvimento usa fallback hardcoded.
-  // ─────────────────────────────────────────────────────────
-  const _SENHAS_FALLBACK = {
-    campo:     'demo2026',
-    coord:     'demo2026',
-    candidato: 'admin2026',
-    master:    'master2026',
-  };
-
-  async function _verificarSenhaCampanha(campanhaId, nivel, senhaDigitada) {
+  async function verificarSenhaCampanha(campanhaId, nivel, senhaDigitada){
     try {
       const config = await WWMX.carregarConfigCampanha(campanhaId);
-      if (config && config.senhas && config.senhas[nivel]) {
-        return config.senhas[nivel] === senhaDigitada;
-      }
-    } catch (_) {}
-    return _SENHAS_FALLBACK[nivel] === senhaDigitada;
+      if (config?.senhas?.[nivel]) return config.senhas[nivel] === senhaDigitada;
+    } catch(e) {
+      console.warn('[auth] config senha indisponível:', e.message);
+    }
+
+    if (isDevMode()) return SENHAS_DEV[nivel] === senhaDigitada;
+    return false;
   }
 
-  // ─────────────────────────────────────────────────────────
-  // FIREBASE AUTH — cria ou loga usuário
-  // Email no formato gmail.com para compatibilidade com Firebase Auth.
-  // Formato: wwmx.nome.nivel.campanha@gmail.com
-  // ─────────────────────────────────────────────────────────
-  function _nomeParaEmail(nome, nivel, campanhaId) {
-    const slug = nome
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/\s+/g, '.')
-      .replace(/[^a-z0-9.]/g, '')
-      .slice(0, 20);
-    const camp = campanhaId.replace(/[^a-z0-9]/gi, '').slice(0, 10).toLowerCase();
-    return 'wwmx.' + slug + '.' + nivel + '.' + camp + '@gmail.com';
+  function nomeParaEmail(nome, nivel, campanhaId){
+    const slug = nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/\s+/g,'.').replace(/[^a-z0-9.]/g,'').slice(0,20) || 'usuario';
+    const camp = String(campanhaId || 'campanha').replace(/[^a-z0-9]/gi,'').slice(0,16).toLowerCase();
+    return `wwmx.${slug}.${nivel}.${camp}@gmail.com`;
   }
 
-  async function _autenticarOuCriarFirebase(email, senha, nivel) {
+  async function autenticarOuCriarFirebase(email, senha){
     const auth = firebase.auth();
     try {
-      // Tenta login primeiro
-      const cred = await auth.signInWithEmailAndPassword(email, senha);
-      return cred.user;
-    } catch (err) {
-      // auth/user-not-found     → SDK compat v8/v9
-      // auth/invalid-credential → SDK compat v9.x+ (novo comportamento)
-      const ePrimeiroAcesso = err.code === 'auth/user-not-found' ||
-                              err.code === 'auth/invalid-credential' ||
-                              err.code === 'auth/invalid-login-credentials';
-      if (ePrimeiroAcesso) {
-        try {
-          // Primeiro acesso: cria o usuário automaticamente
-          const cred = await auth.createUserWithEmailAndPassword(email, senha);
-          return cred.user;
-        } catch (createErr) {
-          // Se falhou ao criar, pode ser que o usuário existe com senha diferente
-          if (createErr.code === 'auth/email-already-in-use') {
-            throw new Error('Senha incorreta. Verifique a senha de campanha.');
-          }
-          throw createErr;
-        }
+      return (await auth.signInWithEmailAndPassword(email, senha)).user;
+    } catch(err) {
+      const primeiroAcesso = ['auth/user-not-found','auth/invalid-credential','auth/invalid-login-credentials'].includes(err.code);
+      if (!primeiroAcesso) throw err;
+      try {
+        return (await auth.createUserWithEmailAndPassword(email, senha)).user;
+      } catch(createErr) {
+        if (createErr.code === 'auth/email-already-in-use') throw new Error('Senha incorreta para este usuário.');
+        throw createErr;
       }
-      if (err.code === 'auth/wrong-password') {
-        throw new Error('Senha incorreta no Firebase Auth.');
-      }
-      throw err;
     }
   }
 
-  // ─────────────────────────────────────────────────────────
-  // NÍVEL SALVO NO RTDB
-  // Impede que alguém use a senha de campo para acessar
-  // um uid que já está registrado como coordenador.
-  // ─────────────────────────────────────────────────────────
-  async function _obterNivelSalvo(campanhaId, uid) {
+  async function obterNivelSalvo(campanhaId, uid){
     try {
-      const snap = await WWMX.db.get(
-        `campanhas/${campanhaId}/militantes/${uid}/nivel`
-      );
+      const snap = await WWMX.db.get(`campanhas/${campanhaId}/militantes/${uid}/nivel`);
       return snap.val() || null;
-    } catch (_) { return null; }
+    } catch(_) { return null; }
   }
 
-  // ─────────────────────────────────────────────────────────
-  // ATIVAR SESSÃO
-  // Grava no RTDB, salva no sessionStorage, monta a UI.
-  // ─────────────────────────────────────────────────────────
-  async function _ativarSessao(session) {
+  async function ativarSessao(session){
     _session = session;
-    global._session = session; // compatibilidade com módulos legados
+    global._session = session;
 
-    // Salvar no sessionStorage para restaurar após F5
     try {
       sessionStorage.setItem(SESSION_KEY, JSON.stringify({
-        uid:        session.uid,
-        nome:       session.nome,
-        nivel:      session.nivel,
+        uid: session.uid,
+        nome: session.nome,
+        email: session.email,
+        nivel: session.nivel,
         campanhaId: session.campanhaId,
-        loginTs:    session.loginTs,
+        loginTs: session.loginTs,
       }));
-    } catch (_) {}
+    } catch(_) {}
 
-    // Registrar no RTDB (presença + militante)
-    await _registrarNoRTDB(session);
+    await registrarNoRTDB(session);
 
-    // Gravar log de login no Firestore
     WWMX.log(session.campanhaId, 'login', {
-      nome:   session.nome,
-      nivel:  session.nivel,
-      device: navigator.userAgent.slice(0, 80),
+      nome: session.nome,
+      nivel: session.nivel,
+      device: navigator.userAgent.slice(0,80),
     }, session).catch(() => {});
 
-    // Montar a UI logada
-    _montarUILogada(session);
-
-    // Disparar evento para outros módulos ouvirem
+    montarUILogada(session);
     global.dispatchEvent(new CustomEvent('wwmx:session-ready', { detail: session }));
   }
 
-  async function _registrarNoRTDB(session) {
+  async function registrarNoRTDB(session){
     try {
-      const { db } = WWMX;
       const path = `campanhas/${session.campanhaId}/militantes/${session.uid}`;
-      await db.set(path, {
-        uid:          session.uid,
-        nome:         session.nome,
-        nivel:        session.nivel,
+      await WWMX.db.set(path, {
+        uid: session.uid,
+        nome: session.nome,
+        nivel: session.nivel,
         ultimoAcesso: Date.now(),
       });
-      db.registrarPresenca(session.campanhaId, session.uid, {
-        nome:  session.nome,
+      WWMX.db.registrarPresenca(session.campanhaId, session.uid, {
+        nome: session.nome,
         nivel: session.nivel,
       });
-    } catch (err) {
-      console.warn('[auth] _registrarNoRTDB falhou:', err.message);
+    } catch(e) {
+      console.warn('[auth] registrarNoRTDB:', e.message);
     }
   }
 
-  // ─────────────────────────────────────────────────────────
-  // RESTAURAR SESSÃO APÓS RELOAD
-  // ─────────────────────────────────────────────────────────
-  function _tentarRestaurarSessao() {
+  function tentarRestaurarSessao(){
     try {
       const raw = sessionStorage.getItem(SESSION_KEY);
       if (!raw) return;
       const salva = JSON.parse(raw);
-
-      // Expirar sessão após 8 horas
-      const OITO_HORAS = 8 * 60 * 60 * 1000;
-      if (Date.now() - (salva.loginTs || 0) > OITO_HORAS) {
+      if (Date.now() - (salva.loginTs || 0) > 8*60*60*1000) {
         sessionStorage.removeItem(SESSION_KEY);
         return;
       }
-
-      // Aguardar Firebase Auth confirmar que o usuário ainda está logado
       firebase.auth().onAuthStateChanged(fbUser => {
-        if (fbUser && fbUser.uid === salva.uid) {
-          // Re-ativar sessão sem mostrar a tela de login
-          _ativarSessao({ ...salva, email: fbUser.email });
-        } else {
-          sessionStorage.removeItem(SESSION_KEY);
-        }
+        if (fbUser && fbUser.uid === salva.uid) ativarSessao({ ...salva, email: fbUser.email });
+        else sessionStorage.removeItem(SESSION_KEY);
       });
-    } catch (_) {
+    } catch(_) {
       sessionStorage.removeItem(SESSION_KEY);
     }
   }
 
-  // ─────────────────────────────────────────────────────────
-  // OBSERVER DO FIREBASE AUTH
-  // Captura desconexões e mudanças de estado externas
-  // (ex: outro dispositivo fez logout do mesmo usuário).
-  // ─────────────────────────────────────────────────────────
-  function _observarAuthFirebase() {
+  function observarAuthFirebase(){
     firebase.auth().onAuthStateChanged(fbUser => {
-      if (!fbUser && _session) {
-        // Firebase desconectou o usuário — forçar logout
-        _encerrarSessao(false);
-      }
+      if (!fbUser && _session) encerrarSessao(false);
     });
   }
 
-  // ─────────────────────────────────────────────────────────
-  // MONTAGEM DA UI LOGADA
-  // Oculta loginScreen, exibe #app, preenche nav por perfil.
-  // ─────────────────────────────────────────────────────────
-  function _montarUILogada(session) {
-    // Ocultar login
-    const loginScreen = document.getElementById('loginScreen');
-    if (loginScreen) loginScreen.style.display = 'none';
-
-    // Mostrar app
+  function montarUILogada(session){
+    const login = document.getElementById('loginScreen');
     const app = document.getElementById('app');
+    if (login) login.style.display = 'none';
     if (app) app.classList.add('show');
-
-    // Badge de nível na header
-    _atualizarBadgeNivel(session.nivel);
-
-    // Personalizar logo com nome do candidato (se disponível)
-    _atualizarLogoHeader(session);
-
-    // Montar navegação conforme nível
-    _montarNav(session.nivel);
-
-    // Ativar módulos do perfil via event (router.js ouve este evento)
-    global.dispatchEvent(new CustomEvent('wwmx:nav-ready', {
-      detail: { nivel: session.nivel, campanhaId: session.campanhaId },
-    }));
+    atualizarBadgeNivel(session.nivel);
+    atualizarIdentidade(session);
   }
 
-  function _atualizarBadgeNivel(nivel) {
+  function atualizarBadgeNivel(nivel){
     const badge = document.getElementById('nivelBadge');
     if (!badge) return;
-    const config = {
-      master:     { label: '⚙️ Master',      cls: 'master'     },
-      candidato:  { label: '👑 Candidato',   cls: 'coord'      },
-      coord:      { label: '🎯 Coordenador', cls: 'coord'      },
-      campo:      { label: '⚔️ Campo',        cls: ''           },
+    const map = {
+      master: { label:'⚙️ Master', cls:'master' },
+      candidato: { label:'👑 Candidato', cls:'coord' },
+      coord: { label:'🎯 Coordenador', cls:'coord' },
+      campo: { label:'⚔️ Campo', cls:'' },
     };
-    const cfg = config[nivel] || config.campo;
+    const cfg = map[nivel] || map.campo;
     badge.textContent = cfg.label;
-    badge.className   = 'header-badge' + (cfg.cls ? ` ${cfg.cls}` : '');
+    badge.className = 'header-badge' + (cfg.cls ? ' ' + cfg.cls : '');
   }
 
-  function _atualizarLogoHeader(session) {
-    // Tenta carregar a identidade visual da campanha do Firestore
+  function atualizarIdentidade(session){
     WWMX.onReady(async () => {
       try {
-        const config = await WWMX.carregarConfigCampanha(session.campanhaId);
-        if (config) _aplicarIdentidadeVisual(config, 'header');
-      } catch (_) {}
+        const cfg = await WWMX.carregarConfigCampanha(session.campanhaId);
+        if (!cfg) return;
+        const sub = document.querySelector('.login-sub');
+        if (sub && cfg.subTitulo) sub.textContent = cfg.subTitulo;
+      } catch(_) {}
     });
   }
 
-  function _aplicarIdentidadeVisual(config, contexto = 'login') {
-    const prefix = contexto === 'header' ? 'header-logo' : 'login-logo';
-    const nameEl = document.querySelector(`.${prefix}-name`) ||
-                   document.querySelector('.login-logo-cand');
-    const numEl  = document.querySelector(`.${prefix}-num`);
-    if (nameEl && config.nomeExibicao) nameEl.innerHTML = config.nomeExibicao;
-    if (numEl  && config.numero)       numEl.textContent = config.numero;
-    const subEl = document.querySelector('.login-sub');
-    if (subEl  && config.subTitulo)    subEl.textContent = config.subTitulo;
-  }
+  async function sair(){ await encerrarSessao(true); }
 
-  function _montarNav(nivel) {
-    const sel = document.getElementById('navSelect');
-    if (!sel) return;
-    const abas = NAV_POR_NIVEL[nivel] || NAV_POR_NIVEL.campo;
-    sel.innerHTML = abas
-      .map(a => `<option value="${a.value}">${a.label}</option>`)
-      .join('');
-    // Primeira aba como padrão
-    if (abas.length) sel.value = abas[0].value;
-  }
-
-  // ─────────────────────────────────────────────────────────
-  // LOGOUT
-  // ─────────────────────────────────────────────────────────
-  async function sair() {
-    await _encerrarSessao(true);
-  }
-
-  async function _encerrarSessao(registrarLog = true) {
+  async function encerrarSessao(registrarLog = true){
     if (!_session) { global.location.reload(); return; }
-
     try {
       if (registrarLog) {
-        await WWMX.log(_session.campanhaId, 'logout', {
-          nome:  _session.nome,
-          nivel: _session.nivel,
-        }, _session).catch(() => {});
+        await WWMX.log(_session.campanhaId, 'logout', { nome:_session.nome, nivel:_session.nivel }, _session).catch(() => {});
       }
-
-      // Remover presença do RTDB
-      await WWMX.db.removerPresenca(_session.campanhaId, _session.uid)
-        .catch(() => {});
-
-      // Deslogar do Firebase Auth
+      await WWMX.db.removerPresenca(_session.campanhaId, _session.uid).catch(() => {});
       await firebase.auth().signOut().catch(() => {});
-
-    } catch (err) {
-      console.error('[auth] _encerrarSessao:', err);
     } finally {
       _session = null;
       global._session = null;
@@ -534,269 +284,89 @@
     }
   }
 
-  // ─────────────────────────────────────────────────────────
-  // GUARDAS DE ACESSO
-  // Use em qualquer módulo para bloquear ações não permitidas.
-  // ─────────────────────────────────────────────────────────
-
-  /**
-   * Retorna true se a sessão ativa tem pelo menos o nível exigido.
-   * @param {string} nivelMinimo  Ex: 'coord'
-   */
-  function temAcesso(nivelMinimo) {
+  function temAcesso(nivelMinimo){
     if (!_session) return false;
     return (NIVEL_RANK[_session.nivel] || 0) >= (NIVEL_RANK[nivelMinimo] || 0);
   }
 
-  /**
-   * Lança erro se o usuário não tem o nível exigido.
-   * @param {string} nivelMinimo
-   * @param {string} [mensagem]
-   */
-  function exigirNivel(nivelMinimo, mensagem) {
+  function exigirNivel(nivelMinimo, mensagem){
     if (!temAcesso(nivelMinimo)) {
       const msg = mensagem || `Acesso restrito a ${nivelMinimo} ou superior.`;
-      if (global.showToast) showToast(`🔒 ${msg}`);
-      throw new Error(`[auth] Acesso negado: ${msg}`);
+      WWMX.UI?.showToast?.(`🔒 ${msg}`, 'error');
+      throw new Error('[auth] acesso negado: ' + msg);
     }
   }
 
-  /**
-   * Verifica se o nível ativo é exatamente um dos informados.
-   * @param {...string} niveis
-   */
-  function ehNivel(...niveis) {
-    return niveis.includes(_session?.nivel);
-  }
+  function ehNivel(...niveis){ return niveis.includes(_session?.nivel); }
+  function sessaoAtual(){ return _session ? { ..._session } : null; }
 
-  /**
-   * Retorna o objeto de sessão corrente ou null.
-   */
-  function sessaoAtual() {
-    return _session ? { ..._session } : null;
-  }
-
-  // ─────────────────────────────────────────────────────────
-  // UTILITÁRIOS
-  // ─────────────────────────────────────────────────────────
-
-  /**
-   * Obtém o campanhaId da URL, localStorage ou cookie.
-   * Fallback para 'demo' em ambiente de desenvolvimento.
-   */
-  function _obterCampanhaIdFallback() {
-    // 1. Parâmetro de URL
+  function obterCampanhaId(){
     const url = new URLSearchParams(global.location.search).get('c');
     if (url) return url;
-    // 2. localStorage (campanha anterior do mesmo dispositivo)
     try {
       const ls = localStorage.getItem('wwmx_campanha');
       if (ls) return ls;
-    } catch (_) {}
-    // 3. Domínio da URL (ex: guto40.wwmx.app → campanhaId = 'guto40')
+    } catch(_) {}
     const host = global.location.hostname.split('.')[0];
     if (host && host !== 'localhost' && host !== '127') return host;
-    // 4. Fallback para demo
-    return 'demo';
+    return isDevMode() ? 'demo' : (global.WWMX?.Referencia?.id || 'angel-referencia-viamao');
   }
 
-  function _mostrarErroLogin(msg, tipo = 'error') {
+  function mostrarErroLogin(msg, tipo='error'){
     const el = document.getElementById('loginError');
     if (!el) return;
-    el.textContent     = msg;
-    el.style.display   = 'block';
-    el.style.color     = tipo === 'info' ? 'var(--accent)' : 'var(--red)';
+    el.textContent = msg;
+    el.style.display = 'block';
+    el.style.color = tipo === 'info' ? 'var(--accent)' : 'var(--red)';
   }
-
-  function _limparErroLogin() {
-    const el = document.getElementById('loginError');
-    if (el) el.style.display = 'none';
-  }
-
-  function _setBtnEntrarLoading(loading) {
+  function limparErroLogin(){ const el = document.getElementById('loginError'); if (el) el.style.display = 'none'; }
+  function setBtnLoading(loading){
     const btn = document.getElementById('btnEntrar');
     if (!btn) return;
-    btn.disabled     = loading;
-    btn.textContent  = loading ? 'Entrando…' : 'Entrar';
+    btn.disabled = loading;
+    btn.textContent = loading ? 'Entrando…' : 'Entrar';
   }
 
-  // ─────────────────────────────────────────────────────────
-  // COMPATIBILIDADE COM MONÓLITO
-  // G.nivel, G.nome, G.uid e nivelSel eram globais no HTML.
-  // Mapeamos para _session para não quebrar código legado.
-  // ─────────────────────────────────────────────────────────
-  function _instalarCompatibilidade() {
-    // fazerLogin() chamado pelo login-script inline do HTML original
-    global.fazerLogin = function () {
+  function instalarCompat(){
+    global.fazerLogin = function(){
       _nivelSelecionado = global._nivelLogin || global.nivelSel || NIVEL.CAMPO;
-      _tentarLogin();
+      tentarLogin();
     };
-
-    // sair() chamado pelo botão 🚪 da header
     global.sair = sair;
-
-    // G.nivel, G.nome, G.uid — proxy para _session
     if (!global.G) global.G = {};
-    Object.defineProperties(global.G, {
-      nivel: {
-        get: () => _session?.nivel || 'campo',
-        set: (v) => { if (_session) _session.nivel = v; },
-      },
-      nome: {
-        get: () => _session?.nome || '',
-        set: (v) => { if (_session) _session.nome = v; },
-      },
-      uid: {
-        get: () => _session?.uid || '',
-        set: (v) => { if (_session) _session.uid = v; },
-      },
-    });
-  }
-
-  // ─────────────────────────────────────────────────────────
-  // INICIALIZAÇÃO AUTOMÁTICA
-  // Aguarda o Firebase estar pronto antes de montar o login.
-  // ─────────────────────────────────────────────────────────
-  function _autoInit() {
-    if (global.WWMX?.onReady) {
-      WWMX.onReady(() => {
-        _instalarCompatibilidade();
-        init();
+    try {
+      Object.defineProperties(global.G, {
+        nivel: { get: () => _session?.nivel || 'campo', set: v => { if (_session) _session.nivel = v; } },
+        nome: { get: () => _session?.nome || '', set: v => { if (_session) _session.nome = v; } },
+        uid: { get: () => _session?.uid || '', set: v => { if (_session) _session.uid = v; } },
       });
-    } else {
-      // WWMX ainda não carregou — aguardar evento
-      global.addEventListener('wwmx:firebase-ready', () => {
-        _instalarCompatibilidade();
-        init();
-      }, { once: true });
-    }
+    } catch(_) {}
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', _autoInit, { once: true });
-  } else {
-    _autoInit();
+  function autoInit(){
+    if (global.WWMX?.onReady) WWMX.onReady(() => { instalarCompat(); init(); });
+    else global.addEventListener('wwmx:firebase-ready', () => { instalarCompat(); init(); }, { once:true });
   }
 
-  // ─────────────────────────────────────────────────────────
-  // API PÚBLICA
-  // ─────────────────────────────────────────────────────────
-  global.WWMX      = global.WWMX      || {};
-  global.WWMX.Auth = global.WWMX.Auth || {};
-
-  Object.assign(global.WWMX.Auth, {
-    // Sessão
+  global.WWMX = global.WWMX || {};
+  global.WWMX.Auth = Object.assign(global.WWMX.Auth || {}, {
     sessaoAtual,
-    getSession:   sessaoAtual,          // alias
-    getUid:       () => _session?.uid,
-    getNome:      () => _session?.nome,
-    getNivel:     () => _session?.nivel,
-    getCampanhaId:() => _session?.campanhaId,
-
-    // Controle de acesso
+    getSession: sessaoAtual,
+    getUid: () => _session?.uid,
+    getNome: () => _session?.nome,
+    getNivel: () => _session?.nivel,
+    getCampanhaId: () => _session?.campanhaId,
     temAcesso,
     exigirNivel,
     ehNivel,
-    NIVEL,         // constantes exportadas para uso nos módulos
-
-    // Ações
+    NIVEL,
     sair,
-
-    // Utilitário de nível
-    rankNivel: (n) => NIVEL_RANK[n] || 0,
+    rankNivel: n => NIVEL_RANK[n] || 0,
+    isDevMode,
   });
+  global._session = null;
 
-  // Atalho global (acesso rápido nos módulos)
-  global._session = null; // será preenchido ao ativar sessão
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', autoInit, {once:true});
+  else autoInit();
 
-}(window));
-
-
-/* ──────────────────────────────────────────────────────────
- * COMO USAR — EXEMPLOS
- * ──────────────────────────────────────────────────────────
- *
- * 1. Verificar acesso mínimo (sem lançar erro)
- *    if (!WWMX.Auth.temAcesso('coord')) {
- *      showToast('Apenas coordenadores podem fazer isso');
- *      return;
- *    }
- *
- * 2. Exigir nível (lança + mostra toast se negado)
- *    WWMX.Auth.exigirNivel('candidato', 'Apenas o candidato acessa logs.');
- *
- * 3. Verificar nível exato
- *    if (WWMX.Auth.ehNivel('campo', 'coord')) {
- *      // campo e coordenador
- *    }
- *
- * 4. Ler dados da sessão
- *    const { uid, nome, nivel, campanhaId } = WWMX.Auth.sessaoAtual();
- *
- * 5. Ouvir quando a sessão estiver pronta (em outros módulos)
- *    window.addEventListener('wwmx:session-ready', ({ detail: session }) => {
- *      estoqueInit(session.campanhaId);
- *    });
- *
- * 6. Ouvir quando a navegação estiver pronta (router.js)
- *    window.addEventListener('wwmx:nav-ready', ({ detail }) => {
- *      const { nivel, campanhaId } = detail;
- *      router.ativarPrimeiraTela(nivel, campanhaId);
- *    });
- *
- * 7. Campanha dinâmica via URL
- *    https://app.wwmx.com/?c=mendes2026  →  campanhaId = 'mendes2026'
- *    https://mendes2026.wwmx.app          →  campanhaId = 'mendes2026' (sub-domínio)
- *
- * ──────────────────────────────────────────────────────────
- * SEQUÊNCIA DE EVENTOS
- * ──────────────────────────────────────────────────────────
- *
- *  [HTML carrega]
- *       ↓
- *  [Firebase SDKs compat]
- *       ↓
- *  core/firebase.js → init() → dispara 'wwmx:firebase-ready'
- *       ↓
- *  core/auth.js     → init() → monta login ou restaura sessão
- *       ↓
- *  (usuário faz login)
- *       ↓
- *  _ativarSessao()  → dispara 'wwmx:session-ready'
- *                   → dispara 'wwmx:nav-ready'
- *       ↓
- *  core/router.js   → ouve 'wwmx:nav-ready' → ativa módulos
- *       ↓
- *  módulos (estoque, mapa, crm…) → ouvem 'wwmx:session-ready'
- *
- * ──────────────────────────────────────────────────────────
- * SENHAS DE CAMPANHA — PRODUÇÃO
- * ──────────────────────────────────────────────────────────
- *
- *  Firestore path: campanhas/{campanhaId}/config
- *  Campo: senhas: { campo: '...', coord: '...', candidato: '...', master: '...' }
- *
- *  O Master define as senhas ao criar a campanha.
- *  As senhas podem ser rotacionadas sem rebuild do app.
- *  Nunca inclua senhas hardcoded em produção — o fallback
- *  _SENHAS_FALLBACK serve apenas para ambiente demo/dev.
- *
- * ──────────────────────────────────────────────────────────
- * SEGURANÇA — FIREBASE AUTH RULES
- * ──────────────────────────────────────────────────────────
- *
- *  Adicionar às Security Rules do RTDB:
- *
- *  "campanhas": {
- *    "$campId": {
- *      "militantes": {
- *        "$uid": {
- *          ".read":  "auth != null && auth.uid === $uid",
- *          ".write": "auth != null && (auth.uid === $uid ||
- *                     root.child('campanhas/'+$campId+'/militantes/'+auth.uid+'/nivel')
- *                          .val() in ['coord','candidato','master'])"
- *        }
- *      }
- *    }
- *  }
- */
+})(window);
