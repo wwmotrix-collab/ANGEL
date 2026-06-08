@@ -1,28 +1,25 @@
 /**
  * campo/mapa.js
- * WWMX Campaign — Mapa para militante de campo
- *
- * FIX aplicados vs versão Deepseek:
- *  1. prompt() substituído por modais HTML reais (bloqueavam mobile)
- *  2. _configurarFAB() movido para depois do DOM existir
- *  3. Formulário de material com foto + GPS + status
- *  4. Formulário de evento com turno + estimativa de pessoas
- *  5. comprimirFoto() integrado (definido em index.html)
- *  6. WWMX.mapaInstance exposto para o botão 🎯 da header
+ * WWMX Campaign — Mapa para coordenador/campo
+ * Mantém registro de pins e adiciona camada de operação territorial.
  */
-
 (function (global) {
   'use strict';
 
   let _campanhaId = null;
   let _map        = null;
   let _markers    = {};
+  let _opMarkers  = {};
   let _modoAdd    = false;
   let _tempMarker = null;
   let _fabAberto  = false;
   let _pendingTipo = null;
   let _latLng      = null;
   let _unsubPins   = null;
+  let _unsubOperacao = null;
+  let _locaisOperacao = [];
+  let _operacao = {};
+  let _territorio = { uf:'RS', municipio:'Viamão', slug:'viamao' };
 
   // Elementos DOM
   let _fabBtn, _fabMenu, _fabOverlay, _fabGps, _mapHint;
@@ -32,17 +29,28 @@
   // ─────────────────────────────────────────────────────────
   function init(campanhaId) {
     _campanhaId = campanhaId;
+    _detectarTerritorio();
     _renderizarContainer();
-    _configurarFAB();      // depois do _renderizarContainer
+    _configurarFAB();
     _configurarGPS();
     _iniciarMapa();
+    _carregarLocaisOperacao();
     _inscreverPins();
+    _inscreverOperacao();
   }
 
   function destroy() {
     if (_unsubPins) _unsubPins();
+    if (_unsubOperacao) _unsubOperacao();
     if (_map) { _map.remove(); _map = null; }
     global.WWMX.mapaInstance = null;
+  }
+
+  function _detectarTerritorio(){
+    const qs = new URLSearchParams(location.search);
+    const uf = qs.get('uf') || localStorage.getItem('wwmx_uf') || 'RS';
+    const municipio = qs.get('municipio') || localStorage.getItem('wwmx_municipio') || 'Viamão';
+    _territorio = { uf, municipio, slug: _slug(municipio) };
   }
 
   // ─────────────────────────────────────────────────────────
@@ -57,7 +65,15 @@
     container.innerHTML = `
       <div id="map" style="height:100%;width:100%;"></div>
       <div class="map-hint" id="mapHint">📍 Toque no mapa para adicionar</div>
+      <div class="coord-op-legend">
+        <strong>Operação</strong>
+        <span><i class="lg alta"></i> Alta</span>
+        <span><i class="lg media"></i> Média</span>
+        <span><i class="lg baixa"></i> Baixa</span>
+        <span><i class="lg sem"></i> Sem prioridade</span>
+      </div>
       <button class="fab-gps" id="fabGps">🛰️</button>
+      <button class="fab-locais" id="fabLocais">🎯</button>
       <div class="fab-overlay" id="fabOverlay"></div>
       <div class="fab-menu" id="fabMenu">
         <div class="fab-item" data-tipo="denuncia">
@@ -79,6 +95,8 @@
       </div>
       <button class="fab" id="fabBtn">+</button>
     `;
+    _styleOperacao();
+    document.getElementById('fabLocais').onclick = _centralizarOperacao;
   }
 
   // ─────────────────────────────────────────────────────────
@@ -87,13 +105,12 @@
   function _iniciarMapa() {
     const cfg = global.WWMX?.Config?.DEFAULT_CONFIG;
     _map = L.map('map', { center: [-30.0807, -51.0258], zoom: 14, zoomControl: false });
-    L.tileLayer(cfg?.mapaTileDark || 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer(cfg?.mapaTileDark || cfg?.mapaTileLayer || 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: cfg?.mapaAttribution || '&copy; OpenStreetMap contributors',
     }).addTo(_map);
     L.control.zoom({ position: 'bottomleft' }).addTo(_map);
     _map.on('click', _onMapClick);
-    // Expõe instância para o botão 🎯 da header
     global.WWMX.mapaInstance = _map;
   }
 
@@ -154,6 +171,148 @@
         ${pin.foto   ? `<img class="popup-photo" src="${pin.foto}" onclick="abrirLightbox(this.src);event.stopPropagation();">` : ''}
       </div>
     `;
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // CAMADA OPERACIONAL — reflete a aba Operação Territorial
+  // ─────────────────────────────────────────────────────────
+  async function _carregarLocaisOperacao(){
+    const caminhos = [
+      `territorios/${_territorio.uf}/${_territorio.slug}/locais_votacao`,
+      'locais_votacao',
+      `campanhas/${_campanhaId}/territorio/locais_votacao`
+    ];
+    const resultados = [];
+    for (const path of caminhos) {
+      const data = await _dbVal(path);
+      resultados.push({ path, data:data || {}, count:_contar(data) });
+    }
+    resultados.sort((a,b)=>b.count-a.count);
+    _locaisOperacao = _normalizarLocais(resultados[0]?.data || {});
+    _renderizarOperacaoTerritorial();
+  }
+
+  function _inscreverOperacao(){
+    _unsubOperacao = WWMX.db.on(`campanhas/${_campanhaId}/operacao/locais`, snap => {
+      _operacao = snap.val() || {};
+      _renderizarOperacaoTerritorial();
+    });
+  }
+
+  function _renderizarOperacaoTerritorial(){
+    if (!_map || !_locaisOperacao.length) return;
+    Object.values(_opMarkers).forEach(m => _map.removeLayer(m));
+    _opMarkers = {};
+    _locaisOperacao.forEach(local => {
+      if (!_temGeo(local)) return;
+      const op = _operacao[local.id] || {};
+      const visual = _visualOperacao(op);
+      const marker = L.circleMarker([local.lat, local.lng], {
+        radius: visual.radius,
+        color: visual.border,
+        fillColor: visual.fill,
+        fillOpacity: .62,
+        weight: visual.weight
+      }).addTo(_map).bindPopup(_popupOperacao(local, op));
+      _opMarkers[local.id] = marker;
+    });
+  }
+
+  function _popupOperacao(local, op){
+    return `
+      <div class="popup-wrap" style="min-width:210px">
+        <div class="popup-name">${_esc(local.nome)}</div>
+        <div class="popup-meta">Zona ${_esc(local.zona)} · Seções ${_esc(local.secoes)}</div>
+        <div>👥 ${_eleitoresLabel(local)}</div>
+        <hr>
+        <div>Prioridade: <strong>${_esc(op.prioridade || 'Sem prioridade')}</strong></div>
+        <div>Status: <strong>${_esc(op.status || 'Pendente')}</strong></div>
+        <div>Responsável: ${_esc(op.responsavel || '—')}</div>
+        <div>Meta: ${_fmt(op.metaVotos || 0)} votos</div>
+        ${op.acao ? `<div>Ação: ${_esc(op.acao)}</div>` : ''}
+      </div>
+    `;
+  }
+
+  function _visualOperacao(op){
+    const p = op?.prioridade || '';
+    const s = op?.status || 'Pendente';
+    let fill = '#64748b', radius = 8;
+    if (p === 'Alta') { fill = '#ef4444'; radius = 16; }
+    else if (p === 'Média') { fill = '#f59e0b'; radius = 13; }
+    else if (p === 'Baixa') { fill = '#22c55e'; radius = 10; }
+    let border = '#ffffff', weight = 2;
+    if (s === 'Concluído') { border = '#22c55e'; weight = 4; }
+    else if (s === 'Em andamento') { border = '#3b82f6'; weight = 4; }
+    else if (s === 'Bloqueado') { border = '#ef4444'; weight = 5; }
+    return { fill, radius, border, weight };
+  }
+
+  function _centralizarOperacao(){
+    if (!_map) return;
+    const validos = _locaisOperacao.filter(_temGeo);
+    if (!validos.length) return;
+    const bounds = L.latLngBounds(validos.map(l=>[l.lat,l.lng]));
+    _map.fitBounds(bounds, { padding:[28,28], maxZoom:14 });
+  }
+
+  async function _dbVal(path){
+    if (global.WWMX?.db?.val) return await WWMX.db.val(path) || {};
+    if (global.WWMX?.db?.get) {
+      const snap = await WWMX.db.get(path);
+      return snap && typeof snap.val === 'function' ? (snap.val() || {}) : (snap || {});
+    }
+    return {};
+  }
+
+  function _normalizarLocais(data){
+    return Array.isArray(data) ? data.map((v,i)=>_normLocal(v, v.id || String(i))) : Object.entries(data||{}).map(([id,v])=>_normLocal(v||{}, id));
+  }
+
+  function _normLocal(v,id){
+    const coords = _normalizarCoordenadas(_pick(v,['lat','latitude'],''), _pick(v,['lng','lon','longitude'],''));
+    const eleitores = Number(_pick(v,['eleitores','el','qt_eleitores'],''));
+    return {
+      id,
+      nome:_pick(v,['nome','local','nome_local','nomeLocal','local_votacao'],'Local sem nome'),
+      zona:_pick(v,['zona','ze'],'—'),
+      secoes:_pick(v,['secoes','secao','ns'],'—'),
+      eleitores:Number.isFinite(eleitores)&&eleitores>0?eleitores:null,
+      lat:coords.lat,
+      lng:coords.lng
+    };
+  }
+
+  function _temGeo(l){ return Number.isFinite(l.lat) && Number.isFinite(l.lng) && _dentroDoTerritorio(l.lat,l.lng); }
+  function _parseCoord(v){ const n=Number(String(v??'').trim().replace(',','.')); return Number.isFinite(n)?n:NaN; }
+  function _normalizarCoordenadas(rawLat,rawLng){
+    const lat=_parseCoord(rawLat), lng=_parseCoord(rawLng);
+    if(!Number.isFinite(lat)||!Number.isFinite(lng)) return {lat:null,lng:null};
+    const cand=[{lat,lng},{lat:lng,lng:lat},{lat:-Math.abs(lat),lng:-Math.abs(lng)},{lat:-Math.abs(lng),lng:-Math.abs(lat)}];
+    return cand.find(c=>_dentroDoTerritorio(c.lat,c.lng)) || {lat:null,lng:null};
+  }
+  function _dentroDoTerritorio(lat,lng){
+    if(_territorio.uf==='RS'&&_territorio.slug==='viamao') return lat>=-30.35&&lat<=-29.75&&lng>=-51.35&&lng<=-50.65;
+    if(_territorio.uf==='RS') return lat>=-34.1&&lat<=-27.0&&lng>=-58.9&&lng<=-49.0;
+    return lat>=-34.5&&lat<=5.5&&lng>=-74.5&&lng<=-32.0;
+  }
+  function _pick(obj,keys,fallback=''){ for(const k of keys){ if(obj&&obj[k]!==undefined&&obj[k]!==null&&obj[k]!=='') return obj[k]; } return fallback; }
+  function _contar(data){ if(!data) return 0; if(Array.isArray(data)) return data.length; if(typeof data==='object') return Object.keys(data).length; return 0; }
+  function _eleitoresLabel(l){ return l.eleitores ? `${_fmt(l.eleitores)} eleitores` : 'eleitores pendentes'; }
+  function _fmt(v){ const n=Number(v||0); return Number.isFinite(n)?n.toLocaleString('pt-BR'):'0'; }
+  function _slug(value){ return String(value||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'territorio'; }
+  function _esc(v){ return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+  function _styleOperacao(){
+    if(document.getElementById('coordOperacaoMapaStyle')) return;
+    const s=document.createElement('style');
+    s.id='coordOperacaoMapaStyle';
+    s.textContent=`
+      .coord-op-legend{position:absolute;left:12px;bottom:16px;z-index:400;background:rgba(15,23,42,.92);color:#f8fafc;border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:9px 11px;display:flex;flex-direction:column;gap:4px;font-size:11px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+      .coord-op-legend strong{font-size:12px;margin-bottom:2px}.coord-op-legend span{display:flex;align-items:center;gap:6px}.coord-op-legend .lg{width:9px;height:9px;border-radius:999px;display:inline-block}.coord-op-legend .alta{background:#ef4444}.coord-op-legend .media{background:#f59e0b}.coord-op-legend .baixa{background:#22c55e}.coord-op-legend .sem{background:#64748b}
+      .fab-locais{position:absolute;right:16px;bottom:84px;width:48px;height:48px;border-radius:999px;border:0;background:#1f2937;color:white;font-size:20px;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:420}
+      @media(max-width:760px){.coord-op-legend{left:10px;right:auto;bottom:74px}.fab-locais{right:16px;bottom:142px}}
+    `;
+    document.head.appendChild(s);
   }
 
   // ─────────────────────────────────────────────────────────
@@ -392,7 +551,6 @@
     `;
     document.body.appendChild(overlay);
 
-    // Status selector
     let statusSel = 'instalado';
     overlay.querySelectorAll('[data-status]').forEach(btn => {
       btn.onclick = () => {
@@ -402,7 +560,6 @@
       };
     });
 
-    // Foto
     const fotoBtn   = overlay.querySelector('#fotoUploadBtn');
     const fotoInput = overlay.querySelector('#fotoInput');
     fotoBtn.onclick = () => fotoInput.click();
