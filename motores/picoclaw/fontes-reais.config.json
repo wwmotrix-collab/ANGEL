@@ -1,0 +1,107 @@
+{
+  "version": "2026-06-mvp",
+  "description": "Configuração de fontes reais para o pipeline PicoClaw do ANGEL. Não contém secrets.",
+  "sources": {
+    "tse": {
+      "label": "Tribunal Superior Eleitoral",
+      "type": "official_open_data",
+      "priority": 1,
+      "trustLevel": "primary",
+      "mode": "download_import_normalize",
+      "datasets": [
+        "locais_votacao",
+        "eleitorado",
+        "resultados_por_secao_zona_municipio",
+        "candidaturas",
+        "partidos_coligacoes"
+      ],
+      "outputs": [
+        "campanhas/{campanhaId}/territorio/locais_votacao",
+        "campanhas/{campanhaId}/eleitoral/historico",
+        "campanhas/{campanhaId}/eleitoral/status"
+      ],
+      "notes": "Fonte primária. Preferir arquivos oficiais baixados/importados em vez de scraping de página."
+    },
+    "tre": {
+      "label": "Tribunal Regional Eleitoral",
+      "type": "official_state_complement",
+      "priority": 2,
+      "trustLevel": "complementary",
+      "mode": "uf_specific_connector_or_manual_import",
+      "datasets": [
+        "locais_publicados_por_uf",
+        "enderecos_atualizados",
+        "zonas_eleitorais",
+        "comunicados_logisticos"
+      ],
+      "outputs": [
+        "campanhas/{campanhaId}/territorio/fontes_tre",
+        "campanhas/{campanhaId}/territorio/revisao_geo"
+      ],
+      "notes": "Cada TRE pode publicar em estrutura própria. Usar como complemento e registrar origem/data."
+    },
+    "geocoding": {
+      "label": "Geocoding Maps",
+      "type": "geocoding_provider",
+      "priority": 3,
+      "trustLevel": "derived",
+      "mode": "provider_with_secret",
+      "providers": [
+        "google_maps",
+        "mapbox",
+        "nominatim_manual_fallback"
+      ],
+      "requiredSecrets": [
+        "GEOCODING_PROVIDER",
+        "GOOGLE_MAPS_API_KEY",
+        "MAPBOX_TOKEN"
+      ],
+      "inputs": [
+        "nome_local",
+        "endereco",
+        "municipio",
+        "uf"
+      ],
+      "outputs": [
+        "lat",
+        "lng",
+        "geoProvider",
+        "geoConfidence",
+        "placeId",
+        "geoStatus"
+      ],
+      "cachePath": "campanhas/{campanhaId}/territorio/geo_cache",
+      "reviewPath": "campanhas/{campanhaId}/territorio/revisao_geo",
+      "notes": "Nunca versionar chaves. Resultado de geocoding deve ir para revisão se confiança for baixa."
+    }
+  },
+  "pipeline": [
+    "collect_tse_files",
+    "normalize_electoral_schema",
+    "merge_tre_complements",
+    "geocode_voting_places",
+    "cache_geocoding_results",
+    "flag_low_confidence_for_review",
+    "generate_electoral_pins",
+    "generate_territory_goals"
+  ],
+  "minimumSchema": {
+    "local_votacao": [
+      "id",
+      "nome",
+      "endereco",
+      "bairro",
+      "municipio",
+      "uf",
+      "zona",
+      "secoes",
+      "eleitores",
+      "lat",
+      "lng",
+      "geoStatus",
+      "geoConfidence",
+      "source",
+      "sourceUpdatedAt"
+    ]
+  }
+}
