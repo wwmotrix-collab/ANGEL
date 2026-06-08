@@ -355,11 +355,21 @@
 
   function _abrirFabOpcao(categoria) {
     if (categoria === 'denuncia') {
-      global.dispatchEvent(new CustomEvent('wwmx:abrir-denuncia'));
+      if (global.WWMX?.Router?.carregarModulo) {
+        global.location.hash = 'denuncias';
+        global.WWMX.Router.carregarModulo('denuncias');
+      } else {
+        global.dispatchEvent(new CustomEvent('wwmx:abrir-denuncia'));
+      }
       return;
     }
     if (categoria === 'lideranca') {
-      global.dispatchEvent(new CustomEvent('wwmx:abrir-lideranca'));
+      if (global.WWMX?.Router?.carregarModulo) {
+        global.location.hash = 'crm';
+        global.WWMX.Router.carregarModulo('crm');
+      } else {
+        global.dispatchEvent(new CustomEvent('wwmx:abrir-lideranca'));
+      }
       return;
     }
     _modoAdd      = true;

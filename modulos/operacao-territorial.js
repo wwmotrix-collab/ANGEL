@@ -189,7 +189,7 @@ function aplicarFiltros(){
     if(status&&(op.status||'Pendente')!==status) return false;
     if(zona&&String(l.zona)!==String(zona)) return false;
     return true;
-  });
+  }).sort(ordenarOperacao);
 
   renderFonte();
   stats();
@@ -238,6 +238,45 @@ function stats(){
   `;
 }
 
+
+function prioridadePeso(p){
+  return {Alta:3,'Média':2,Baixa:1}[p||'']||0;
+}
+
+function statusPeso(s){
+  return {'Bloqueado':4,'Em andamento':3,'Pendente':2,'Concluído':1}[s||'Pendente']||2;
+}
+
+function prioridadeSugerida(l){
+  const e=Number(l.eleitores||0);
+  if(e>=6000) return 'Alta';
+  if(e>=3000) return 'Média';
+  if(e>0) return 'Baixa';
+  return '';
+}
+
+function ordenarOperacao(a,b){
+  const opa=opDo(a.id);
+  const opb=opDo(b.id);
+
+  // Prioridade definida pelo usuário vem primeiro.
+  const pa=prioridadePeso(opa.prioridade);
+  const pb=prioridadePeso(opb.prioridade);
+  if(pa!==pb) return pb-pa;
+
+  // Depois status operacional.
+  const sa=statusPeso(opa.status);
+  const sb=statusPeso(opb.status);
+  if(sa!==sb) return sb-sa;
+
+  // Se ainda não foi configurado, carrega primeiro quem tem mais eleitores.
+  const ea=Number(a.eleitores||0);
+  const eb=Number(b.eleitores||0);
+  if(ea!==eb) return eb-ea;
+
+  return String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR');
+}
+
 function renderLista(){
   const el=document.getElementById('opLista');
   if(!el) return;
@@ -257,6 +296,7 @@ function renderLista(){
           <strong>${esc(l.nome)}</strong>
           <small>Zona ${esc(l.zona)} · Seções ${esc(l.secoes)} · ${eleitoresLabel(l)}</small>
           <small>${esc(l.endereco)}</small>
+          ${!op.prioridade&&prioridadeSugerida(l)?`<small class="op-sugestao">Sugestão PicoClaw: prioridade ${esc(prioridadeSugerida(l))} por eleitorado</small>`:''}
           ${op.responsavel?`<small>Responsável: ${esc(op.responsavel)}</small>`:''}
         </div>
         <div class="op-item-tags">
@@ -293,7 +333,7 @@ function detalhe(){
         <label>Prioridade
           <select id="opEditPrioridade">
             <option value="">Sem prioridade</option>
-            ${PRIORIDADES.map(p=>`<option value="${p}" ${op.prioridade===p?'selected':''}>${p}</option>`).join('')}
+            ${PRIORIDADES.map(p=>`<option value="${p}" ${(op.prioridade||prioridadeSugerida(l))===p?'selected':''}>${p}</option>`).join('')}
           </select>
         </label>
 
@@ -458,7 +498,7 @@ function style(){
     .op-filters{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:10px}
     .op-list{display:flex;flex-direction:column;gap:8px;max-height:620px;overflow:auto}
     .op-item{width:100%;text-align:left;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;justify-content:space-between;gap:10px;color:var(--text)}
-    .op-item-main strong{display:block;font-size:14px}.op-item-main small{display:block;color:var(--muted);font-size:11px;margin-top:4px}
+    .op-item-main strong{display:block;font-size:14px}.op-item-main small{display:block;color:var(--muted);font-size:11px;margin-top:4px}.op-sugestao{color:#98ff00!important;font-weight:800}
     .op-item-tags{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
     .op-badge{font-size:10px;border-radius:999px;padding:5px 8px;background:rgba(148,163,184,.16);color:var(--muted);white-space:nowrap}
     .pri-alta{background:rgba(239,68,68,.18);color:#ef4444}.pri-media{background:rgba(245,158,11,.18);color:#f59e0b}.pri-baixa{background:rgba(34,197,94,.18);color:#22c55e}
