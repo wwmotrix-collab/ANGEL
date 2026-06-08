@@ -86,12 +86,22 @@ try { if (!localStorage.getItem('wwmx_campanha')) localStorage.setItem('wwmx_cam
 <script src="core/auth.js"></script>
 <script src="core/login-levels.js"></script>
 <script src="core/xp.js"></script>
-<script src="core/router-ops.js"></script>
+<script src="core/router.js"></script>
 
 <script>
 function abrirLightbox(src) { document.getElementById('lightboxImg').src = src; document.getElementById('lightbox').classList.add('show'); }
 function fecharLightbox() { document.getElementById('lightbox').classList.remove('show'); }
-document.getElementById('btnCentrar').addEventListener('click', function() { if (window.WWMX?.mapaInstance) { const map = window.WWMX.mapaInstance; if (navigator.geolocation) { navigator.geolocation.getCurrentPosition(pos => map.setView([pos.coords.latitude, pos.coords.longitude], 16), () => showToast('GPS não disponível', 'error')); } } });
+document.getElementById('btnCentrar').addEventListener('click', function() {
+  if (window.WWMX?.mapaInstance) {
+    const map = window.WWMX.mapaInstance;
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => map.setView([pos.coords.latitude,pos.coords.longitude],16),
+        () => showToast('GPS não disponível', 'error')
+      );
+    }
+  }
+});
 function formatDate(ts) { if (!ts) return '—'; const d = new Date(ts); return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }); }
 function calcKm(pontos) { if (!pontos || pontos.length < 2) return 0; let total = 0; for (let i = 1; i < pontos.length; i++) { const R = 6371; const dLat = (pontos[i].lat - pontos[i-1].lat) * Math.PI / 180; const dLng = (pontos[i].lng - pontos[i-1].lng) * Math.PI / 180; const a = Math.sin(dLat/2)**2 + Math.cos(pontos[i-1].lat * Math.PI/180) * Math.cos(pontos[i].lat * Math.PI/180) * Math.sin(dLng/2)**2; total += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); } return total; }
 window.calcKm = calcKm; window.formatDate = formatDate;
