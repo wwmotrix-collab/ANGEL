@@ -11,7 +11,7 @@
 (function(global){
   'use strict';
 
-  const BUILD_TAG = '20260608-router-unificado';
+  const BUILD_TAG = '20260608-mvp-fontes-reais';
 
   const VIEWS = {
     central:       { path:'modulos/central.js', init:'centralInit', destroy:'centralDestroy', viewId:'centralView' },
@@ -37,16 +37,17 @@
     adminequipe:   { path:'candidato/equipe.js', init:'candEquipeInit', destroy:'candEquipeDestroy', viewId:'adminequipeView' },
     logs:          { path:'candidato/logs.js', init:'logsInit', destroy:'logsDestroy', viewId:'logsView' },
 
-    'master-gerador':   { path:'master/gerador-picoclaw.js', init:'geradorPicoclawInit', destroy:'geradorPicoclawDestroy', viewId:'masterGeradorView' },
-    'master-geocoding': { path:'master/geocoding-eleitoral.js', init:'geocodingEleitoralInit', destroy:'geocodingEleitoralDestroy', viewId:'masterGeocodingView' },
-    'master-campanhas': { path:'master/campanhas.js', init:'campanhasInit', destroy:'campanhasDestroy', viewId:'masterCampanhasView' },
-    'master-planos':    { path:'master/planos.js', init:'planosInit', destroy:'planosDestroy', viewId:'masterPlanosView' },
-    'master-banco':     { path:'master/banco-global.js', init:'bancoInit', destroy:'bancoDestroy', viewId:'masterBancoView' },
-    'master-clientes':  { path:'master/clientes.js', init:'clientesInit', destroy:'clientesDestroy', viewId:'masterClientesView' },
+    'master-gerador':        { path:'master/gerador-picoclaw.js', init:'geradorPicoclawInit', destroy:'geradorPicoclawDestroy', viewId:'masterGeradorView' },
+    'master-geocoding':      { path:'master/geocoding-eleitoral.js', init:'geocodingEleitoralInit', destroy:'geocodingEleitoralDestroy', viewId:'masterGeocodingView' },
+    'master-mapa-eleitoral': { path:'master/mapa-eleitoral.js', init:'mapaEleitoralInit', destroy:'mapaEleitoralDestroy', viewId:'masterMapaEleitoralView' },
+    'master-campanhas':      { path:'master/campanhas.js', init:'campanhasInit', destroy:'campanhasDestroy', viewId:'masterCampanhasView' },
+    'master-planos':         { path:'master/planos.js', init:'planosInit', destroy:'planosDestroy', viewId:'masterPlanosView' },
+    'master-banco':          { path:'master/banco-global.js', init:'bancoInit', destroy:'bancoDestroy', viewId:'masterBancoView' },
+    'master-clientes':       { path:'master/clientes.js', init:'clientesInit', destroy:'clientesDestroy', viewId:'masterClientesView' },
   };
 
   const ORDEM = {
-    master:    ['central','master-gerador','master-geocoding','master-campanhas','master-planos','master-clientes','master-banco'],
+    master:    ['central','master-gerador','master-geocoding','master-mapa-eleitoral','master-campanhas','master-planos','master-clientes','master-banco'],
     candidato: ['central','admindash','adminmapa','adminagentes','adminequipe','dash','eleitoral','crm','denuncias','logs'],
     coord:     ['central','dash','mapa','eleitoral','crm','denuncias','militantes','estoque','rotas'],
     campo:     ['central','mapa','meucampo','percursos','meuinventario','minhasrotas','denuncias'],
