@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://angel.wwmx/schemas/picoclaw/package.schema.json",
+  "title": "ANGEL PicoClaw Campaign Package",
+  "type": "object",
+  "required": ["files"],
+  "properties": {
+    "generatedAt": { "type": "string" },
+    "files": {
+      "type": "object",
+      "required": [
+        "campaign.input.json",
+        "history.input.json",
+        "automation.input.json",
+        "skins.config.json",
+        "modules.config.json",
+        "firebase.config.json",
+        "seed.config.json",
+        "deploy.config.json"
+      ],
+      "properties": {
+        "campaign.input.json": { "type": "object" },
+        "history.input.json": { "type": "object" },
+        "automation.input.json": { "type": "object" },
+        "skins.config.json": { "type": "object" },
+        "modules.config.json": { "type": "object" },
+        "firebase.config.json": { "type": "object" },
+        "seed.config.json": { "type": "object" },
+        "deploy.config.json": { "type": "object" },
+        "picoclaw.prompt.md": { "type": "string" }
+      }
+    },
+    "prompt": { "type": "string" },
+    "checklist": { "type": "array", "items": { "type": "string" } }
+  }
+}
